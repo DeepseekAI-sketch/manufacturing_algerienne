@@ -1,0 +1,352 @@
+{% extends "layout.html" %}
+
+{% block title %}Tableau de Bord - ManufacturingSoft Algérie{% endblock %}
+
+{% block content %}
+<!-- Page Heading -->
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0">Tableau de bord de gestion</h1>
+    <div>
+        <a href="{{ url_for('rapports_liste') }}" class="btn btn-sm btn-primary shadow-sm">
+            <i class="fas fa-download fa-sm text-white-50 me-1"></i> Télécharger Rapport
+        </a>
+    </div>
+</div>
+
+<!-- Statistiques (4 cartes) -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Produits Actifs</div>
+                        <div class="h5 mb-0 font-weight-bold">{{ stats['total_produits'] if stats and 'total_produits' in stats else 0|default(0) }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-box fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Commandes en cours</div>
+                        <div class="h5 mb-0 font-weight-bold">{{ stats.commandes_en_cours|default(0) }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                            Maintenances planifiées</div>
+                        <div class="h5 mb-0 font-weight-bold">{{ stats.maintenance_planifiee|default(0) }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-tools fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                            Produits sous seuil d'alerte</div>
+                        <div class="h5 mb-0 font-weight-bold">{{ stats.produits_sous_seuil|default(0) }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Graphiques -->
+<div class="row">
+    <!-- Graphique de production mensuelle -->
+    <div class="col-lg-8 col-md-12 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Production Mensuelle</h6>
+                <div class="dropdown no-arrow">
+                    <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
+                        <div class="dropdown-header">Options:</div>
+                        <a class="dropdown-item" href="{{ url_for('rapport_production') }}">Voir rapport détaillé</a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="{{ url_for('export_data', rapport_type='production') }}">Exporter données</a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if graphs.production_mensuelle %}
+                <div class="chart-area">
+                    <img src="data:image/png;base64,{{ graphs.production_mensuelle }}" alt="Production mensuelle" class="img-fluid" />
+                </div>
+                <hr>
+                <div class="text-center small mt-2">
+                    <span class="me-2">
+                        <i class="fas fa-circle text-primary"></i> Productions
+                    </span>
+                    <a href="{{ url_for('rapport_production') }}" class="text-decoration-none">
+                        Voir le rapport détaillé
+                    </a>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-chart-bar fa-3x text-gray-300 mb-3"></i>
+                    <p>Aucune donnée de production disponible pour la période.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique de répartition des produits par catégorie -->
+    <div class="col-lg-4 col-md-12 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Répartition des produits</h6>
+            </div>
+            <div class="card-body">
+                {% if graphs.categories_produits %}
+                <div class="chart-pie pb-2">
+                    <img src="data:image/png;base64,{{ graphs.categories_produits }}" alt="Répartition des produits" class="img-fluid" />
+                </div>
+                <hr>
+                <div class="text-center small mt-2">
+                    <a href="{{ url_for('produits_liste') }}" class="text-decoration-none">
+                        Voir tous les produits
+                    </a>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-chart-pie fa-3x text-gray-300 mb-3"></i>
+                    <p>Aucune donnée de produits disponible.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique de qualité -->
+    <div class="col-lg-8 col-md-12 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Taux de conformité qualité</h6>
+                <div class="dropdown no-arrow">
+                    <a class="dropdown-toggle" href="#" role="button" id="dropdownQualiteLink" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownQualiteLink">
+                        <div class="dropdown-header">Options:</div>
+                        <a class="dropdown-item" href="{{ url_for('qualite_rapport') }}">Voir rapport détaillé</a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="{{ url_for('export_data', rapport_type='qualite') }}">Exporter données</a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if graphs.qualite_mensuelle %}
+                <div class="chart-area">
+                    <img src="data:image/png;base64,{{ graphs.qualite_mensuelle }}" alt="Taux de conformité qualité" class="img-fluid" />
+                </div>
+                <hr>
+                <div class="text-center small mt-2">
+                    <span class="me-2">
+                        <i class="fas fa-circle text-info"></i> Taux de conformité
+                    </span>
+                    <span class="me-2">
+                        <i class="fas fa-line text-danger"></i> Objectif
+                    </span>
+                    <a href="{{ url_for('qualite_rapport') }}" class="text-decoration-none">
+                        Voir le rapport détaillé
+                    </a>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-chart-line fa-3x text-gray-300 mb-3"></i>
+                    <p>Aucune donnée de qualité disponible pour la période.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Section Tâches récentes et Alertes -->
+    <div class="col-lg-4 col-md-12">
+        <!-- Liste des tâches récentes -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Mes tâches récentes</h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    {% if taches_recentes %}
+                        {% for tache in taches_recentes %}
+                            <div class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">
+                                        {% if tache.type == 'production' %}
+                                            <i class="fas fa-industry me-2 text-primary"></i>
+                                        {% elif tache.type == 'qualite' %}
+                                            <i class="fas fa-check-circle me-2 text-success"></i>
+                                        {% elif tache.type == 'maintenance' %}
+                                            <i class="fas fa-tools me-2 text-warning"></i>
+                                        {% endif %}
+                                        {{ tache.description }}
+                                    </h6>
+                                    <small>{{ tache.date_creation.strftime('%d/%m/%Y %H:%M') }}</small>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-center py-3">Aucune tâche récente.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des alertes -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Alertes récentes</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% if alertes %}
+                        {% for alerte in alertes %}
+                            <a href="{{ alerte.lien }}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">
+                                        {% if alerte.type == 'stock' %}
+                                            <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
+                                        {% elif alerte.type == 'maintenance' %}
+                                            <i class="fas fa-wrench me-2 text-info"></i>
+                                        {% endif %}
+                                        {{ alerte.titre }}
+                                    </h6>
+                                    <small class="text-{{ 'danger' if alerte.priorite == 'haute' else 'warning' if alerte.priorite == 'moyenne' else 'info' }}">
+                                        {{ alerte.priorite|capitalize }}
+                                    </small>
+                                </div>
+                                <small>{{ alerte.message }}</small>
+                                <div class="d-flex align-items-center mt-1">
+                                    <small class="text-muted">
+                                        {% if alerte.date %}
+                                            {{ alerte.date.strftime('%d/%m/%Y') }}
+                                        {% endif %}
+                                    </small>
+                                    <small class="ms-auto">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </small>
+                                </div>
+                            </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="p-3 text-center">
+                            <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                            <p class="mb-0">Aucune alerte active.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actions rapides -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Actions rapides</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% if has_permission('operator') %}
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <a href="{{ url_for('production_ajouter') }}" class="btn btn-primary btn-block py-3">
+                            <i class="fas fa-plus-circle me-2"></i> Nouvelle production
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <a href="{{ url_for('stock_mouvement') }}" class="btn btn-success btn-block py-3">
+                            <i class="fas fa-exchange-alt me-2"></i> Mouvement de stock
+                        </a>
+                    </div>
+                    {% endif %}
+                    
+                    {% if has_permission('supervisor') %}
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <a href="{{ url_for('qualite_ajouter') }}" class="btn btn-info btn-block py-3">
+                            <i class="fas fa-clipboard-check me-2"></i> Contrôle qualité
+                        </a>
+                    </div>
+                    <div class="col-md-3 col-sm-6 mb-3">
+                        <a href="{{ url_for('maintenance_ajouter') }}" class="btn btn-warning btn-block py-3">
+                            <i class="fas fa-tools me-2"></i> Planifier maintenance
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block custom_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Animation pour les cartes de statistiques
+        const statCards = document.querySelectorAll('.card-body .h5');
+        statCards.forEach(card => {
+            const finalValue = parseInt(card.textContent.trim(), 10);
+            let startValue = 0;
+            const duration = 1500;
+            const increment = finalValue / (duration / 16);
+            
+            const updateValue = () => {
+                startValue += increment;
+                if (startValue < finalValue) {
+                    card.textContent = Math.floor(startValue);
+                    requestAnimationFrame(updateValue);
+                } else {
+                    card.textContent = finalValue;
+                }
+            };
+            
+            if (!isNaN(finalValue)) {
+                card.textContent = '0';
+                updateValue();
+            }
+        });
+    });
+</script>
+{% endblock %}
