@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="fr" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>{% block title %}ManufacturingSoft Algérie{% endblock %}</title>
+    
+    <!-- Fonts -->
+    <link href="{{ url_for('static', filename='webfonts/fa-solid-900.woff2') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='webfonts/fa-regular-400.woff2') }}" rel="stylesheet">
+    
+    <!-- CSS Essentiels -->
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/dataTables.bootstrap5.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/flatpickr.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    
+    <!-- Page-specific CSS -->
+    {% block custom_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation principale -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-industry me-2"></i>
+                ManufacturingSoft Algérie
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            {% if 'user_id' in session %}
+            <div class="collapse navbar-collapse" id="navbarMain">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link text-center {{ 'active' if request.endpoint == 'index' }}" href="{{ url_for('index') }}">
+                            <i class="fas fa-tachometer-alt me-1"></i> Dashboard
+                        </a>
+                    </li>
+                    
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-center {{ 'active' if 'produits' in request.endpoint }}" href="#" id="produitsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-box me-1"></i> Produits
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('produits_liste') }}">
+                                    <i class="fas fa-list me-1"></i> Liste des produits
+                                </a>
+                            </li>
+                            {% if has_permission('supervisor') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('produit_ajouter') }}">
+                                    <i class="fas fa-plus-circle me-1"></i> Ajouter un produit
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% if has_permission('manager') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('produits_importer') }}">
+                                    <i class="fas fa-file-import me-1"></i> Importer des produits
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('produits_exporter') }}">
+                                    <i class="fas fa-file-export me-1"></i> Exporter les produits
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-center {{ 'active' if 'stocks' in request.endpoint }}" href="#" id="stocksDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-warehouse me-1"></i> Stocks
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('stocks_liste') }}">
+                                    <i class="fas fa-boxes me-1"></i> État des stocks
+                                </a>
+                            </li>
+                            {% if has_permission('operator') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('stock_mouvement') }}">
+                                    <i class="fas fa-exchange-alt me-1"></i> Entrée/Sortie de stock
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% if has_permission('supervisor') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('stock_inventaire') }}">
+                                    <i class="fas fa-clipboard-check me-1"></i> Inventaire
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('stock_transfert') }}">
+                                    <i class="fas fa-truck-loading me-1"></i> Transfert de stock
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('stock_historique') }}">
+                                    <i class="fas fa-history me-1"></i> Historique des mouvements
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('stock_rapport') }}">
+                                    <i class="fas fa-chart-bar me-1"></i> Rapports et analyses
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-center {{ 'active' if 'production' in request.endpoint }}" href="#" id="productionDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-industry me-1"></i> Production
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('production_liste') }}">
+                                    <i class="fas fa-list me-1"></i> Liste des productions
+                                </a>
+                            </li>
+                            {% if has_permission('operator') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('production_ajouter') }}">
+                                    <i class="fas fa-plus-circle me-1"></i> Ajouter une production
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('production_planning') }}">
+                                    <i class="fas fa-calendar-alt me-1"></i> Planning de production
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('production_lignes') }}">
+                                    <i class="fas fa-cogs me-1"></i> Lignes de production
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-center {{ 'active' if 'maintenance' in request.endpoint }}" href="#" id="maintenanceDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-tools me-1"></i> Maintenance
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('maintenance_liste') }}">
+                                    <i class="fas fa-list me-1"></i> Liste des maintenances
+                                </a>
+                            </li>
+                            {% if has_permission('operator') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('maintenance_ajouter') }}">
+                                    <i class="fas fa-plus-circle me-1"></i> Programmer une maintenance
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('maintenance_equipements') }}">
+                                    <i class="fas fa-wrench me-1"></i> Équipements
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-center {{ 'active' if 'qualite' in request.endpoint }}" href="#" id="qualiteDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-check-circle me-1"></i> Qualité
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('qualite_liste') }}">
+                                    <i class="fas fa-clipboard-list me-1"></i> Contrôles qualité
+                                </a>
+                            </li>
+                            {% if has_permission('operator') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('qualite_ajouter') }}">
+                                    <i class="fas fa-plus-circle me-1"></i> Nouveau contrôle
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('qualite_normes') }}">
+                                    <i class="fas fa-certificate me-1"></i> Normes et standards
+                                </a>
+                            </li>
+                            {% if has_permission('supervisor') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('qualite_rapport') }}">
+                                    <i class="fas fa-chart-pie me-1"></i> Rapports qualité
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    
+                    {% if has_permission('supervisor') %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-center {{ 'active' if 'rapports' in request.endpoint }}" href="#" id="rapportsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-chart-line me-1"></i> Rapports
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('rapports_liste') }}">
+                                    <i class="fas fa-file-alt me-1"></i> Liste des rapports
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('rapport_production') }}">
+                                    <i class="fas fa-industry me-1"></i> Production
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('stock_rapport') }}">
+                                    <i class="fas fa-boxes me-1"></i> Stocks
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('qualite_rapport') }}">
+                                    <i class="fas fa-check-double me-1"></i> Qualité
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('rapport_maintenance') }}">
+                                    <i class="fas fa-tools me-1"></i> Maintenance
+                                </a>
+                            </li>
+                            {% if has_permission('manager') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('rapport_kpi') }}">
+                                    <i class="fas fa-tachometer-alt me-1"></i> KPI
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('rapport_alertes') }}">
+                                    <i class="fas fa-exclamation-triangle me-1"></i> Alertes
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    {% endif %}
+                    
+                    {% if has_permission('manager') %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-center {{ 'active' if 'parametres' in request.endpoint }}" href="#" id="parametresDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-cog me-1"></i> Paramètres
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('parametres') }}">
+                                    <i class="fas fa-sliders-h me-1"></i> Général
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('parametres_utilisateurs') }}">
+                                    <i class="fas fa-users me-1"></i> Utilisateurs
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('parametres_lignes_production') }}">
+                                    <i class="fas fa-industry me-1"></i> Lignes de production
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('parametres_entrepots') }}">
+                                    <i class="fas fa-warehouse me-1"></i> Entrepôts
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('parametres_equipements') }}">
+                                    <i class="fas fa-tools me-1"></i> Équipements
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('parametres_types_maintenance') }}">
+                                    <i class="fas fa-wrench me-1"></i> Types de maintenance
+                                </a>
+                            </li>
+                            {% if has_permission('admin') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('parametres_database') }}">
+                                    <i class="fas fa-database me-1"></i> Base de données
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('parametres_logs') }}">
+                                    <i class="fas fa-file-alt me-1"></i> Logs système
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('parametres_systeme') }}">
+                                    <i class="fas fa-server me-1"></i> Système
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    {% endif %}
+                </ul>
+                
+                <div class="d-flex align-items-center">
+                    <!-- Switch thème -->
+                    <div class="theme-switch me-3" id="themeSwitch" title="Changer de thème">
+                        <i class="fas fa-moon text-white"></i>
+                    </div>
+                    
+                    <!-- Profil utilisateur -->
+                    <div class="dropdown">
+                        <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user-circle fa-lg me-1"></i>
+                            <span class="d-none d-sm-inline">{{ session['prenom'] }} {{ session['nom'] }}</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <span class="dropdown-item-text">
+                                    <strong>{{ session['prenom'] }} {{ session['nom'] }}</strong><br>
+                                    <small class="text-muted">{{ session['role'] | capitalize }}</small>
+                                </span>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('mon_profil') }}"><i class="fas fa-user-edit me-2"></i>Mon profil</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Déconnexion</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+    
+    <!-- Conteneur principal -->
+    <main class="container-fluid py-4">
+        <!-- Messages flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show mb-4" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <!-- Titre de la page -->
+        {% if title is defined %}
+        <div class="d-sm-flex align-items-center justify-content-between mb-4">
+            <h1 class="h3 mb-0">{{ title }}</h1>
+            
+            {% if action_buttons is defined %}
+            <div class="action-buttons">
+                {{ action_buttons | safe }}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <!-- Contenu de la page -->
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Pied de page -->
+    <footer class="py-3 mt-4 bg-light">
+        <div class="container-fluid text-center">
+            <span class="text-muted">
+                &copy; 2025 ManufacturingSoft Algérie • Version 2.0.0 • Tous droits réservés
+            </span>
+        </div>
+    </footer>
+    
+    <!-- JavaScript Essentiels -->
+    <script src="{{ url_for('static', filename='js/jquery-3.6.0.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/jquery.dataTables.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dataTables.bootstrap5.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chart.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/flatpickr.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/flatpickr.fr.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <!-- Page-specific JavaScript -->
+    {% block custom_js %}{% endblock %}
+</body>
+</html>
