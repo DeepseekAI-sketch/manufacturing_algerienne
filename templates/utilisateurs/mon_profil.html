@@ -1,0 +1,253 @@
+{% extends "layout.html" %}
+
+{% block title %}Mon Profil - {{ user.nom_utilisateur }}{% endblock %}
+
+{% block custom_css %}
+<style>
+    .profile-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .profile-header .avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-bottom: 1rem;
+        border: 3px solid #dee2e6;
+    }
+    .profile-header h2 {
+        margin-bottom: 0.25rem;
+    }
+    .profile-header p {
+        color: #6c757d;
+    }
+    .nav-tabs .nav-link.active {
+        font-weight: bold;
+    }
+    .table th {
+        white-space: nowrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <div class="profile-header">
+        {# Placeholder for an avatar image if available in user object #}
+        {# <img src="{{ user.avatar_url or url_for('static', filename='img/default_avatar.png') }}" alt="Avatar" class="avatar"> #}
+        <i class="fas fa-user-circle fa-5x text-primary mb-3"></i>
+        <h2>{{ user.prenom }} {{ user.nom }}</h2>
+        <p>@{{ user.nom_utilisateur }}</p>
+    </div>
+
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <ul class="nav nav-tabs mb-4" id="profileTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button" role="tab" aria-controls="info" aria-selected="true"><i class="fas fa-user-shield me-2"></i>Informations Personnelles</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="update-info-tab" data-bs-toggle="tab" data-bs-target="#update-info" type="button" role="tab" aria-controls="update-info" aria-selected="false"><i class="fas fa-edit me-2"></i>Modifier Informations</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="change-password-tab" data-bs-toggle="tab" data-bs-target="#change-password" type="button" role="tab" aria-controls="change-password" aria-selected="false"><i class="fas fa-key me-2"></i>Changer Mot de Passe</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab" aria-controls="history" aria-selected="false"><i class="fas fa-history me-2"></i>Historique des Connexions</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="profileTabContent">
+        <!-- Informations Personnelles Tab -->
+        <div class="tab-pane fade show active" id="info" role="tabpanel" aria-labelledby="info-tab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Détails du Profil</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Nom Complet:</strong> {{ user.prenom }} {{ user.nom }}</p>
+                            <p><strong>Nom d'utilisateur:</strong> {{ user.nom_utilisateur }}</p>
+                            <p><strong>Email:</strong> {{ user.email }}</p>
+                            <p><strong>Rôle:</strong> {{ user.role | capitalize }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Date de Création du Compte:</strong> {{ user.date_creation.strftime('%d/%m/%Y %H:%M') if user.date_creation else 'N/A' }}</p>
+                            <p><strong>Dernière Connexion:</strong> {{ user.derniere_connexion.strftime('%d/%m/%Y %H:%M') if user.derniere_connexion else 'Jamais' }}</p>
+                            <p><strong>Préférences:</strong></p>
+                            <ul>
+                                <li>Thème: {{ user.preferences.get('theme', 'Défaut') | capitalize if user.preferences else 'Défaut' }}</li>
+                                <li>Langue: {{ user.preferences.get('langue', 'Français') | capitalize if user.preferences else 'Français' }}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modifier Informations Tab -->
+        <div class="tab-pane fade" id="update-info" role="tabpanel" aria-labelledby="update-info-tab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Modifier les Informations Personnelles et Préférences</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('mon_profil') }}">
+                        <input type="hidden" name="action" value="update_info">
+                        {{ update_info_form.hidden_tag() if update_info_form else '' }}
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Adresse Email</label>
+                            {{ update_info_form.email(class="form-control", default=user.email, required=True) if update_info_form else '<input type="email" class="form-control" name="email" value="' ~ user.email ~ '" required>' }}
+                            {% if update_info_form and update_info_form.email.errors %}
+                                <div class="invalid-feedback d-block">{% for error in update_info_form.email.errors %}{{ error }}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="preferences_theme" class="form-label">Thème Préféré</label>
+                                {% if update_info_form %}
+                                    {{ update_info_form.preferences_theme(class="form-select", default=user.preferences.get('theme', 'light')) }}
+                                {% else %}
+                                <select name="preferences_theme" class="form-select">
+                                    <option value="light" {% if user.preferences.get('theme') == 'light' %}selected{% endif %}>Clair</option>
+                                    <option value="dark" {% if user.preferences.get('theme') == 'dark' %}selected{% endif %}>Sombre</option>
+                                    <option value="system" {% if user.preferences.get('theme') == 'system' %}selected{% endif %}>Système</option>
+                                </select>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="preferences_langue" class="form-label">Langue Préférée</label>
+                                 {% if update_info_form %}
+                                    {{ update_info_form.preferences_langue(class="form-select", default=user.preferences.get('langue', 'fr')) }}
+                                {% else %}
+                                <select name="preferences_langue" class="form-select">
+                                    <option value="fr" {% if user.preferences.get('langue') == 'fr' %}selected{% endif %}>Français</option>
+                                    <option value="en" {% if user.preferences.get('langue') == 'en' %}selected{% endif %}>English</option>
+                                    <option value="ar" {% if user.preferences.get('langue') == 'ar' %}selected{% endif %}>العربية</option>
+                                </select>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Enregistrer les Modifications</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Changer Mot de Passe Tab -->
+        <div class="tab-pane fade" id="change-password" role="tabpanel" aria-labelledby="change-password-tab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Changer le Mot de Passe</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('mon_profil') }}">
+                        <input type="hidden" name="action" value="change_password">
+                        {{ change_password_form.hidden_tag() if change_password_form else '' }}
+                        
+                        <div class="mb-3">
+                            <label for="current_password" class="form-label">Mot de Passe Actuel</label>
+                            {{ change_password_form.current_password(class="form-control", required=True) if change_password_form else '<input type="password" class="form-control" name="current_password" required>' }}
+                             {% if change_password_form and change_password_form.current_password.errors %}
+                                <div class="invalid-feedback d-block">{% for error in change_password_form.current_password.errors %}{{ error }}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">Nouveau Mot de Passe</label>
+                            {{ change_password_form.new_password(class="form-control", required=True) if change_password_form else '<input type="password" class="form-control" name="new_password" required>' }}
+                            {% if change_password_form and change_password_form.new_password.errors %}
+                                <div class="invalid-feedback d-block">{% for error in change_password_form.new_password.errors %}{{ error }}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">Confirmer le Nouveau Mot de Passe</label>
+                            {{ change_password_form.confirm_password(class="form-control", required=True) if change_password_form else '<input type="password" class="form-control" name="confirm_password" required>' }}
+                            {% if change_password_form and change_password_form.confirm_password.errors %}
+                                <div class="invalid-feedback d-block">{% for error in change_password_form.confirm_password.errors %}{{ error }}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                        <button type="submit" class="btn btn-danger"><i class="fas fa-key me-2"></i>Changer le Mot de Passe</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historique des Connexions Tab -->
+        <div class="tab-pane fade" id="history" role="tabpanel" aria-labelledby="history-tab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Historique des Connexions Récentes</h5>
+                </div>
+                <div class="card-body">
+                    {% if historique_connexions %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Action</th>
+                                    <th>Adresse IP</th>
+                                    <th>User Agent</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entree in historique_connexions %}
+                                <tr>
+                                    <td>{{ entree.action | capitalize }}</td>
+                                    <td>{{ entree.ip_address }}</td>
+                                    <td title="{{ entree.user_agent }}">{{ entree.user_agent | truncate(60, True) }}</td>
+                                    <td>{{ entree.date_creation.strftime('%d/%m/%Y %H:%M:%S') if entree.date_creation else 'N/A' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-center text-muted">Aucun historique de connexion disponible.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block custom_js %}
+<script>
+    // Optional: Activate tab from URL hash
+    document.addEventListener('DOMContentLoaded', function() {
+        var hash = window.location.hash;
+        if (hash) {
+            var triggerEl = document.querySelector('#profileTab button[data-bs-target="' + hash + '"]');
+            if (triggerEl) {
+                var tab = new bootstrap.Tab(triggerEl);
+                tab.show();
+            }
+        }
+
+        // Update URL hash when tab changes
+        var tabElms = document.querySelectorAll('#profileTab button[data-bs-toggle="tab"]');
+        tabElms.forEach(function(tabElm) {
+            tabElm.addEventListener('shown.bs.tab', function (event) {
+                history.pushState(null, null, event.target.dataset.bsTarget);
+            });
+        });
+    });
+</script>
+{% endblock %}

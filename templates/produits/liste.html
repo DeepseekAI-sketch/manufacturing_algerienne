@@ -1,0 +1,171 @@
+{% extends "layout.html" %}
+
+{% block title %}Liste des Produits{% endblock %}
+
+{% block custom_css %}
+<style>
+    .product-image-thumbnail {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: .25rem;
+        border: 1px solid #dee2e6;
+    }
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .action-buttons .btn, .action-buttons .dropdown-item {
+        margin-right: 5px;
+        margin-bottom: 5px; /* For smaller screens */
+    }
+    .filter-form .form-control, .filter-form .form-select {
+        margin-right: 10px; /* Spacing between filter elements */
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0 text-gray-800">Liste des Produits</h1>
+        <div>
+            {% if has_permission('supervisor') %}
+            <a href="{{ url_for('produit_ajouter') }}" class="btn btn-primary me-2">
+                <i class="fas fa-plus-circle me-1"></i> Ajouter Produit
+            </a>
+            {% endif %}
+            <a href="{{ url_for('produits_exporter') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-file-export me-1"></i> Exporter
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('produits_liste') }}" class="row gx-2 gy-2 align-items-center filter-form">
+                <div class="col-md-4">
+                    <label for="recherche" class="visually-hidden">Recherche</label>
+                    <input type="search" class="form-control" id="recherche" name="recherche" placeholder="Rechercher par nom, référence..." value="{{ filtres.recherche if filtres else '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="categorie" class="visually-hidden">Catégorie</label>
+                    <select class="form-select" id="categorie" name="categorie">
+                        <option value="">Toutes les catégories</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}" {% if filtres and filtres.categorie == cat.id|string %}selected{% endif %}>{{ cat.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-auto">
+                    <button type="submit" class="btn btn-info"><i class="fas fa-filter me-1"></i>Filtrer</button>
+                    <a href="{{ url_for('produits_liste') }}" class="btn btn-outline-secondary ms-2"><i class="fas fa-undo me-1"></i>Réinitialiser</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tableau des Produits -->
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Image</th>
+                            <th>Nom</th>
+                            <th>Référence</th>
+                            <th>Catégorie</th>
+                            <th class="text-end">Prix Unitaire</th>
+                            <th class="text-end">Stock Total</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if produits %}
+                            {% for produit in produits %}
+                            <tr>
+                                <td>
+                                    {% if produit.image_url %}
+                                        <img src="{{ produit.image_url }}" alt="{{ produit.nom }}" class="product-image-thumbnail">
+                                    {% else %}
+                                        <div class="product-image-thumbnail bg-light d-flex align-items-center justify-content-center text-muted">
+                                            <i class="fas fa-image fa-2x"></i>
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td><a href="{{ url_for('produit_details', produit_id=produit.id) }}">{{ produit.nom }}</a></td>
+                                <td>{{ produit.reference }}</td>
+                                <td>{{ produit.categorie_nom if produit.categorie_nom else (produit.categorie.nom if produit.categorie else 'N/A') }}</td>
+                                <td class="text-end">{{ "%.2f DA"|format(produit.prix_unitaire|float) if produit.prix_unitaire is not none else 'N/A' }}</td>
+                                <td class="text-end {% if produit.stock_total is not none and produit.stock_total < (produit.seuil_alerte if produit.seuil_alerte else 10) %}text-danger fw-bold{% endif %}">
+                                    {{ produit.stock_total if produit.stock_total is not none else 'N/A' }}
+                                </td>
+                                <td class="text-center action-buttons">
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" id="actionsDropdown{{ produit.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                            Actions
+                                        </button>
+                                        <ul class="dropdown-menu" aria-labelledby="actionsDropdown{{ produit.id }}">
+                                            <li><a class="dropdown-item" href="{{ url_for('produit_details', produit_id=produit.id) }}"><i class="fas fa-eye me-2"></i>Voir</a></li>
+                                            {% if has_permission('supervisor') %}
+                                            <li><a class="dropdown-item" href="{{ url_for('produit_modifier', produit_id=produit.id) }}"><i class="fas fa-edit me-2"></i>Modifier</a></li>
+                                            {% endif %}
+                                            <li><a class="dropdown-item" href="{{ url_for('nomenclature_produit', produit_id=produit.id) }}"><i class="fas fa-sitemap me-2"></i>Nomenclature</a></li>
+                                            {% if has_permission('manager') %}
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <form method="POST" action="{{ url_for('produit_supprimer', produit_id=produit.id) }}" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce produit ?');" style="display: inline;">
+                                                    <button type="submit" class="dropdown-item text-danger"><i class="fas fa-trash-alt me-2"></i>Supprimer</button>
+                                                </form>
+                                            </li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center">Aucun produit trouvé.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination and pagination.total_pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('produits_liste', page=pagination.prev_num, categorie=filtres.categorie if filtres else '', recherche=filtres.recherche if filtres else '') }}" aria-label="Précédent">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    <li class="page-item {% if pagination.page == page_num %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('produits_liste', page=page_num, categorie=filtres.categorie if filtres else '', recherche=filtres.recherche if filtres else '') }}">{{ page_num }}</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+            {% endfor %}
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('produits_liste', page=pagination.next_num, categorie=filtres.categorie if filtres else '', recherche=filtres.recherche if filtres else '') }}" aria-label="Suivant">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block custom_js %}
+{# Any specific JS for this page could go here #}
+{% endblock %}

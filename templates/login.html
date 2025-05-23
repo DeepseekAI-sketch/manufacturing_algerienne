@@ -1,0 +1,110 @@
+{% extends "layout.html" %}
+
+{% block title %}Connexion{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white text-center">
+                    <h4 class="mb-0"><i class="fas fa-sign-in-alt me-2"></i>Connexion</h4>
+                </div>
+                <div class="card-body p-4">
+                    {# Flashed messages are typically handled in layout.html, but can be added here if needed #}
+                    {# Example:
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    #}
+
+                    <form method="POST" action="{{ url_for('login') }}">
+                        {{ form.hidden_tag() }} {# For CSRF token if using Flask-WTF #}
+                        
+                        {# Hidden field for 'next' parameter #}
+                        {% if request.args.get('next') %}
+                            <input type="hidden" name="next" value="{{ request.args.get('next') }}">
+                        {% endif %}
+
+                        <div class="mb-3">
+                            {% if form.username.label %}
+                                {{ form.username.label(class="form-label") }}
+                            {% else %}
+                                <label for="username" class="form-label">Nom d'utilisateur ou Email</label>
+                            {% endif %}
+                            {{ form.username(class="form-control form-control-lg", required=True, placeholder="Votre nom d'utilisateur ou email") }}
+                            {% if form.username.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.username.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            {% if form.password.label %}
+                                {{ form.password.label(class="form-label") }}
+                            {% else %}
+                                <label for="password" class="form-label">Mot de passe</label>
+                            {% endif %}
+                            {{ form.password(class="form-control form-control-lg", required=True, placeholder="Votre mot de passe") }}
+                            {% if form.password.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.password.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            {% if form.remember_me %}
+                                {{ form.remember_me(class="form-check-input") }}
+                                {{ form.remember_me.label(class="form-check-label") }}
+                            {% else %}
+                                {# Fallback if form object doesn't exist or field name differs #}
+                                <input type="checkbox" class="form-check-input" id="remember_me" name="remember_me">
+                                <label class="form-check-label" for="remember_me">Se souvenir de moi</label>
+                            {% endif %}
+                        </div>
+                        
+                        {% if form.submit %}
+                            {{ form.submit(class="btn btn-primary btn-lg w-100") }}
+                        {% else %}
+                            <button type="submit" class="btn btn-primary btn-lg w-100">
+                                <i class="fas fa-sign-in-alt me-2"></i>Se connecter
+                            </button>
+                        {% endif %}
+                    </form>
+                </div>
+                <div class="card-footer text-center py-3">
+                    <a href="{{ url_for('mot_de_passe_oublie') }}">Mot de passe oublié ?</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block custom_css %}
+<style>
+    body {
+        background-color: #f4f7f6; /* Light gray background for the page */
+    }
+    .card-header h4 {
+        font-size: 1.3rem;
+    }
+    .form-control-lg {
+        padding: 0.75rem 1.25rem;
+        font-size: 1.1rem;
+    }
+    .btn-lg {
+        padding: 0.75rem 1.25rem;
+        font-size: 1.1rem;
+    }
+</style>
+{% endblock %}

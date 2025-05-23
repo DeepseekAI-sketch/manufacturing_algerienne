@@ -1,0 +1,339 @@
+{% extends "layout.html" %}
+
+{% block title %}Tableau de Bord KPIs{% endblock %}
+
+{% block custom_css %}
+<style>
+    .kpi-card {
+        background-color: #fff;
+        border: 1px solid #e3e6f0;
+        border-radius: .35rem;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, .15) !important;
+    }
+    .kpi-card .card-title {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #5a5c69;
+        margin-bottom: 0.75rem;
+    }
+    .kpi-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #4e73df;
+    }
+    .kpi-label {
+        font-size: 0.9rem;
+        color: #858796;
+        margin-bottom: 0.5rem;
+    }
+    .kpi-sub-value {
+        font-size: 1rem;
+        color: #5a5c69;
+    }
+    .kpi-sub-label {
+        font-size: 0.8rem;
+        color: #b7b9cc;
+    }
+    .chart-container {
+        margin-top: 1rem;
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: .25rem;
+        text-align: center;
+    }
+    .chart-container img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #dee2e6;
+    }
+    .table-responsive {
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Tableau de Bord des Indicateurs Clés de Performance (KPIs)</h1>
+        <a href="{{ url_for('rapport_kpi_export', periode=request.args.get('periode', 'mois')) }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-download fa-sm text-white-50"></i> Exporter en PDF
+        </a>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Sélectionner la Période</h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('rapport_kpi') }}">
+                <div class="row align-items-end">
+                    <div class="col-md-4">
+                        <label for="periode" class="form-label">Période d'analyse</label>
+                        <select class="form-select" id="periode" name="periode">
+                            <option value="semaine" {% if request.args.get('periode') == 'semaine' %}selected{% endif %}>Cette Semaine</option>
+                            <option value="mois" {% if request.args.get('periode', 'mois') == 'mois' %}selected{% endif %}>Ce Mois</option>
+                            <option value="trimestre" {% if request.args.get('periode') == 'trimestre' %}selected{% endif %}>Ce Trimestre</option>
+                            <option value="annee" {% if request.args.get('periode') == 'annee' %}selected{% endif %}>Cette Année</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i>Afficher</button>
+                    </div>
+                    {% if periode_texte %}
+                    <div class="col-md-5 text-md-end">
+                        <h5 class="mb-0">Période sélectionnée : <span class="text-primary">{{ periode_texte }}</span></h5>
+                    </div>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if kpis %}
+    <!-- Section Production KPIs -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="kpi-card">
+                <h5 class="card-title"><i class="fas fa-industry me-2"></i>KPIs de Production</h5>
+                {% if kpis.production %}
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <span class="kpi-value">{{ kpis.production.nb_productions_total | default('N/A', true) }}</span>
+                        <p class="kpi-label">Productions Total</p>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="kpi-value">{{ kpis.production.quantite_produite_totale | round(2) | default('N/A', true) }}</span>
+                        <p class="kpi-label">Quantité Totale Produite</p>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="kpi-value">{{ kpis.production.productivite_moyenne | round(2) | default('N/A', true) }} <small class="text-muted fs-6">unités/h</small></span>
+                        <p class="kpi-label">Productivité Moyenne</p>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-center text-muted">Données de production non disponibles.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Section Qualité KPIs -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="kpi-card">
+                <h5 class="card-title"><i class="fas fa-check-circle me-2"></i>KPIs de Qualité</h5>
+                {% if kpis.qualite %}
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <span class="kpi-value">{{ kpis.qualite.nb_controles_total | default('N/A', true) }}</span>
+                        <p class="kpi-label">Contrôles Qualité</p>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="kpi-value">{{ kpis.qualite.nb_controles_conformes | default('N/A', true) }}</span>
+                        <p class="kpi-label">Contrôles Conformes</p>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="kpi-value">{{ kpis.qualite.taux_conformite | round(2) | default('N/A', true) }} %</span>
+                        <p class="kpi-label">Taux de Conformité</p>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-center text-muted">Données de qualité non disponibles.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Section Maintenance KPIs -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="kpi-card">
+                <h5 class="card-title"><i class="fas fa-tools me-2"></i>KPIs de Maintenance</h5>
+                {% if kpis.maintenance %}
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <span class="kpi-value">{{ kpis.maintenance.nb_maintenances_total | default('N/A', true) }}</span>
+                        <p class="kpi-label">Maintenances Total</p>
+                    </div>
+                    <div class="col-md-3">
+                        <span class="kpi-value">{{ kpis.maintenance.nb_maintenances_terminees | default('N/A', true) }}</span>
+                        <p class="kpi-label">Terminées</p>
+                    </div>
+                    <div class="col-md-3">
+                        <span class="kpi-value">{{ kpis.maintenance.nb_maintenances_planifiees | default('N/A', true) }}</span>
+                        <p class="kpi-label">Planifiées</p>
+                    </div>
+                    <div class="col-md-3">
+                        <span class="kpi-value">{{ kpis.maintenance.temps_moyen_resolution_heures | round(1) | default('N/A', true) }} <small class="text-muted fs-6">h</small></span>
+                        <p class="kpi-label">Temps Moyen Résolution</p>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-center text-muted">Données de maintenance non disponibles.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Section Stocks KPIs -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="kpi-card">
+                <h5 class="card-title"><i class="fas fa-warehouse me-2"></i>KPIs de Stocks</h5>
+                {% if kpis.stocks %}
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <span class="kpi-value">{{ kpis.stocks.nb_produits_en_stock | default('N/A', true) }}</span>
+                        <p class="kpi-label">Produits en Stock</p>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="kpi-value">{{ kpis.stocks.nb_produits_en_alerte_stock | default('N/A', true) }}</span>
+                        <p class="kpi-label">Produits en Alerte</p>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="kpi-value">{{ kpis.stocks.pourcentage_produits_alerte | round(2) | default('N/A', true) }} %</span>
+                        <p class="kpi-label">Pourcentage en Alerte</p>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-center text-muted">Données de stocks non disponibles.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphiques: Productivité et Performance Lignes -->
+    <div class="row">
+        {% if graphiques and graphiques.productivite %}
+        <div class="col-xl-7 col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Évolution de la Productivité ({{ periode_texte }})</h6>
+                </div>
+                <div class="card-body chart-container">
+                    <img src="data:image/png;base64,{{ graphiques.productivite }}" alt="Graphique Évolution Productivité">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if graphiques and graphiques.performance_lignes %}
+        <div class="col-xl-5 col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Performance des Lignes de Production</h6>
+                </div>
+                <div class="card-body chart-container">
+                     <img src="data:image/png;base64,{{ graphiques.performance_lignes }}" alt="Graphique Performance Lignes">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Tableaux: Performance Lignes et Évolution Productivité -->
+    <div class="row">
+        <div class="col-xl-7 col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Détail Performance par Ligne de Production</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Ligne de Production</th>
+                                    <th>Production Totale (unités)</th>
+                                    <th>Performance (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if kpis.performance_lignes %}
+                                    {% for ligne in kpis.performance_lignes %}
+                                    <tr>
+                                        <td>{{ ligne.ligne_nom | default('N/A', true) }}</td>
+                                        <td>{{ ligne.production_totale | round(2) | default('N/A', true) }}</td>
+                                        <td>{{ ligne.performance | round(2) | default('N/A', true) }} %</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr><td colspan="3" class="text-center">Aucune donnée de performance par ligne.</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-5 col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Détail Évolution Productivité ({{ periode_texte }})</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Période</th>
+                                    <th>Quantité Produite</th>
+                                    <th>Productivité (unités/h)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if kpis.productivite_periode %}
+                                    {% for item in kpis.productivite_periode %}
+                                    <tr>
+                                        <td>{{ item.periode | default('N/A', true) }}</td>
+                                        <td>{{ item.quantite_produite | round(2) | default('N/A', true) }}</td>
+                                        <td>{{ item.productivite | round(2) | default('N/A', true) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr><td colspan="3" class="text-center">Aucune donnée d'évolution de productivité.</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique Qualité -->
+    {% if graphiques and graphiques.qualite %}
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Évolution du Taux de Conformité Qualité ({{ periode_texte }})</h6>
+                </div>
+                <div class="card-body chart-container">
+                    <img src="data:image/png;base64,{{ graphiques.qualite }}" alt="Graphique Évolution Taux de Conformité">
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-warning text-center" role="alert">
+                Aucune donnée KPI disponible pour la période sélectionnée. Veuillez essayer une autre période.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block custom_js %}
+{# Si besoin de JS spécifique pour cette page, comme des interactions de graphiques Chart.js (non utilisé ici car images) #}
+{% endblock %}
