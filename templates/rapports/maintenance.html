@@ -1,0 +1,355 @@
+{% extends "layout.html" %}
+
+{% block title %}Rapport de Maintenance{% endblock %}
+
+{% block custom_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr.min.css') }}">
+<style>
+    .chart-container {
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: .25rem;
+        text-align: center; /* Center images */
+    }
+    .chart-container img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #dee2e6;
+    }
+    .table-responsive {
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        text-align: center;
+        padding: 1rem;
+        border: 1px solid #e3e6f0;
+        border-radius: .35rem;
+        margin-bottom: 1rem;
+    }
+    .stat-card .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        display: block;
+    }
+    .stat-card .stat-label {
+        font-size: 0.9rem;
+        color: #858796;
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Rapport de Maintenance</h1>
+        {% if rapport %}
+            <a href="{{ url_for('rapport_maintenance_export', rapport_id=rapport.id, date_debut=request.args.get('date_debut'), date_fin=request.args.get('date_fin')) }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-download fa-sm text-white-50"></i> Exporter en PDF
+            </a>
+        {% endif %}
+    </div>
+
+    <!-- Filtres -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Filtrer le Rapport</h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('rapport_maintenance', rapport_id=rapport.id if rapport else None) }}">
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <label for="date_debut" class="form-label">Date de début</label>
+                        <input type="text" class="form-control flatpickr" id="date_debut" name="date_debut" value="{{ request.args.get('date_debut', data.date_debut_orig if data else '') }}">
+                    </div>
+                    <div class="col-md-5">
+                        <label for="date_fin" class="form-label">Date de fin</label>
+                        <input type="text" class="form-control flatpickr" id="date_fin" name="date_fin" value="{{ request.args.get('date_fin', data.date_fin_orig if data else '') }}">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-filter me-1"></i>Filtrer</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if data %}
+    <!-- Statistiques Générales -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Statistiques Générales</h6>
+        </div>
+        <div class="card-body">
+            {% if data.statistiques %}
+            <div class="row">
+                <div class="col-md-2 col-sm-4">
+                    <div class="stat-card">
+                        <span class="stat-value">{{ data.statistiques.total_maintenances }}</span>
+                        <span class="stat-label">Total</span>
+                    </div>
+                </div>
+                <div class="col-md-2 col-sm-4">
+                    <div class="stat-card">
+                        <span class="stat-value">{{ data.statistiques.terminees }}</span>
+                        <span class="stat-label">Terminées</span>
+                    </div>
+                </div>
+                <div class="col-md-2 col-sm-4">
+                    <div class="stat-card">
+                        <span class="stat-value">{{ data.statistiques.en_cours }}</span>
+                        <span class="stat-label">En Cours</span>
+                    </div>
+                </div>
+                <div class="col-md-2 col-sm-4">
+                    <div class="stat-card">
+                        <span class="stat-value">{{ data.statistiques.planifiees }}</span>
+                        <span class="stat-label">Planifiées</span>
+                    </div>
+                </div>
+                <div class="col-md-2 col-sm-4">
+                    <div class="stat-card">
+                        <span class="stat-value">{{ data.statistiques.annulees }}</span>
+                        <span class="stat-label">Annulées</span>
+                    </div>
+                </div>
+                <div class="col-md-2 col-sm-4">
+                    <div class="stat-card">
+                        <span class="stat-value">{{ data.statistiques.duree_moyenne_heures | round(2) if data.statistiques.duree_moyenne_heures is not none else 'N/A' }} h</span>
+                        <span class="stat-label">Durée Moy.</span>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-center text-muted">Statistiques générales non disponibles.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Graphiques: Évolution et Priorités -->
+    <div class="row">
+        {% if graphiques and graphiques.evolution %}
+        <div class="col-xl-8 col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Évolution des Maintenances</h6>
+                </div>
+                <div class="card-body chart-container">
+                    <img src="data:image/png;base64,{{ graphiques.evolution }}" alt="Graphique Évolution des Maintenances">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if graphiques and graphiques.priorites %}
+        <div class="col-xl-4 col-lg-5">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Distribution par Priorité</h6>
+                </div>
+                <div class="card-body chart-container">
+                     <img src="data:image/png;base64,{{ graphiques.priorites }}" alt="Graphique Distribution par Priorité">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Tableaux: Par Type et Par Priorité (détail) -->
+    <div class="row">
+        <div class="col-xl-6 col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Maintenances par Type</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Nombre</th>
+                                    <th>Terminées</th>
+                                    <th>Durée Moyenne (h)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in data.par_type %}
+                                <tr>
+                                    <td>{{ row.type_maintenance }}</td>
+                                    <td>{{ row.nombre_maintenances }}</td>
+                                    <td>{{ row.terminees }}</td>
+                                    <td>{{ row.duree_moyenne_heures | round(2) if row.duree_moyenne_heures is not none else 'N/A' }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="4" class="text-center">Aucune donnée par type de maintenance.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-6 col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Détail par Priorité</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Priorité</th>
+                                    <th>Nombre</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in data.par_priorite %}
+                                <tr>
+                                    <td>{{ row.priorite | capitalize }}</td>
+                                    <td>{{ row.nombre_maintenances }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="2" class="text-center">Aucune donnée par priorité.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique Temps de Résolution et Tableau Temps de Résolution -->
+     <div class="row">
+        {% if graphiques and graphiques.temps_resolution %}
+        <div class="col-xl-8 col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Temps Moyen de Résolution par Type</h6>
+                </div>
+                <div class="card-body chart-container">
+                     <img src="data:image/png;base64,{{ graphiques.temps_resolution }}" alt="Graphique Temps Moyen de Résolution">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        <div class="col-xl-{{ '4' if graphiques and graphiques.temps_resolution else '12' }} col-lg-{{ '5' if graphiques and graphiques.temps_resolution else '12' }}">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Détail Temps de Résolution</h6>
+                </div>
+                <div class="card-body">
+                     <div class="table-responsive">
+                        <table class="table table-bordered table-striped" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Type de Maintenance</th>
+                                    <th>Temps Moyen (heures)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in data.temps_resolution %}
+                                <tr>
+                                    <td>{{ row.type_maintenance }}</td>
+                                    <td>{{ row.temps_moyen_resolution_heures | round(2) if row.temps_moyen_resolution_heures is not none else 'N/A' }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="2" class="text-center">Aucune donnée de temps de résolution.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Tableau: Top 10 Équipements -->
+    <div class="row">
+        <div class="col-xl-12 col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Top 10 Équipements par Nombre de Maintenances</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Équipement</th>
+                                    <th>Référence</th>
+                                    <th>Nombre</th>
+                                    <th>Terminées</th>
+                                    <th>Annulées</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in data.par_equipement %}
+                                <tr>
+                                    <td>{{ row.equipement_nom }}</td>
+                                    <td>{{ row.equipement_reference }}</td>
+                                    <td>{{ row.nombre_maintenances }}</td>
+                                    <td>{{ row.terminees }}</td>
+                                    <td>{{ row.annulees }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="5" class="text-center">Aucune donnée par équipement.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-warning text-center" role="alert">
+                Aucune donnée disponible pour la période sélectionnée ou pour ce rapport.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block custom_js %}
+<script src="{{ url_for('static', filename='js/flatpickr.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/flatpickr.fr.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr(".flatpickr", {
+            dateFormat: "Y-m-d",
+            locale: "fr",
+            allowInput: true,
+        });
+         // Explicitly set default dates for flatpickr instances
+        const dateDebutInput = document.getElementById('date_debut');
+        const dateFinInput = document.getElementById('date_fin');
+
+        if (dateDebutInput) {
+            flatpickr(dateDebutInput, {
+                dateFormat: "Y-m-d",
+                locale: "fr",
+                allowInput: true,
+                defaultDate: "{{ request.args.get('date_debut', data.date_debut_orig if data else '') }}"
+            });
+        }
+
+        if (dateFinInput) {
+            flatpickr(dateFinInput, {
+                dateFormat: "Y-m-d",
+                locale: "fr",
+                allowInput: true,
+                defaultDate: "{{ request.args.get('date_fin', data.date_fin_orig if data else '') }}"
+            });
+        }
+    });
+</script>
+{% endblock %}

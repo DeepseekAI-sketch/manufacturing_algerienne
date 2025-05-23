@@ -1,0 +1,283 @@
+{% extends "layout.html" %}
+
+{% block title %}Rapport de Production{% endblock %}
+
+{% block custom_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr.min.css') }}">
+<style>
+    .chart-container {
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: .25rem;
+        text-align: center; /* Center images */
+    }
+    .chart-container img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #dee2e6;
+    }
+    .table-responsive {
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Rapport de Production</h1>
+        {% if rapport %}
+            <a href="{{ url_for('rapport_production_export', rapport_id=rapport.id, date_debut=request.args.get('date_debut'), date_fin=request.args.get('date_fin')) }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-download fa-sm text-white-50"></i> Exporter en PDF
+            </a>
+        {% endif %}
+    </div>
+
+    <!-- Filtres -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Filtrer le Rapport</h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('rapport_production', rapport_id=rapport.id if rapport else None) }}">
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <label for="date_debut" class="form-label">Date de début</label>
+                        <input type="text" class="form-control flatpickr" id="date_debut" name="date_debut" value="{{ request.args.get('date_debut', data.date_debut_orig if data else '') }}">
+                    </div>
+                    <div class="col-md-5">
+                        <label for="date_fin" class="form-label">Date de fin</label>
+                        <input type="text" class="form-control flatpickr" id="date_fin" name="date_fin" value="{{ request.args.get('date_fin', data.date_fin_orig if data else '') }}">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-filter me-1"></i>Filtrer</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if data %}
+    <!-- Graphique de Production Journalière -->
+    {% if graph_data %}
+    <div class="row">
+        <div class="col-xl-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Production Journalière</h6>
+                </div>
+                <div class="card-body chart-container">
+                    <img src="data:image/png;base64,{{ graph_data }}" alt="Graphique de Production Journalière">
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Production Journalière (Tableau) -->
+        <div class="col-xl-6 col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Détail Production Journalière</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Jour</th>
+                                    <th>Total Produit</th>
+                                    <th>Nb Lots</th>
+                                    <th>Temps Moyen (min/lot)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in data.production_jour %}
+                                <tr>
+                                    <td>{{ row.jour.strftime('%d/%m/%Y') if row.jour else 'N/A' }}</td>
+                                    <td>{{ row.total_produit | round(2) }}</td>
+                                    <td>{{ row.nombre_lots }}</td>
+                                    <td>{{ row.temps_moyen_lot | round(2) if row.temps_moyen_lot else 'N/A' }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="4" class="text-center">Aucune donnée de production journalière.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Production par Produit (Tableau) -->
+        <div class="col-xl-6 col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Production par Produit</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Produit</th>
+                                    <th>Référence</th>
+                                    <th>Total Produit</th>
+                                    <th>Nb Lots</th>
+                                    <th>Temps Moyen (min/lot)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in data.production_produit %}
+                                <tr>
+                                    <td>{{ row.produit_nom }}</td>
+                                    <td>{{ row.produit_reference }}</td>
+                                    <td>{{ row.total_produit | round(2) }}</td>
+                                    <td>{{ row.nombre_lots }}</td>
+                                    <td>{{ row.temps_moyen_lot | round(2) if row.temps_moyen_lot else 'N/A' }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="5" class="text-center">Aucune donnée de production par produit.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique Top 10 Produits et Production par Ligne (Tableau) -->
+    <div class="row">
+        {% if data.graph_produits %}
+        <div class="col-xl-6 col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Top 10 Produits (par Quantité)</h6>
+                </div>
+                <div class="card-body chart-container">
+                     <img src="data:image/png;base64,{{ data.graph_produits }}" alt="Graphique Top 10 Produits">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="col-xl-{{ '6' if data.graph_produits else '12' }} col-lg-{{ '5' if data.graph_produits else '12' }}">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Production par Ligne</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Ligne</th>
+                                    <th>Total Produit</th>
+                                    <th>Nb Lots</th>
+                                    <th>Temps Moyen (min/lot)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in data.production_ligne %}
+                                <tr>
+                                    <td>{{ row.ligne_nom }}</td>
+                                    <td>{{ row.total_produit | round(2) }}</td>
+                                    <td>{{ row.nombre_lots }}</td>
+                                    <td>{{ row.temps_moyen_lot | round(2) if row.temps_moyen_lot else 'N/A' }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="4" class="text-center">Aucune donnée de production par ligne.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique Productivité par Ligne et Productivité (Tableau) -->
+    <div class="row">
+        {% if data.graph_productivite %}
+        <div class="col-xl-6 col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Productivité par Ligne de Production</h6>
+                </div>
+                <div class="card-body chart-container">
+                    <img src="data:image/png;base64,{{ data.graph_productivite }}" alt="Graphique Productivité par Ligne">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="col-xl-{{ '6' if data.graph_productivite else '12' }} col-lg-{{ '5' if data.graph_productivite else '12' }}">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Détail Productivité par Ligne</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Ligne</th>
+                                    <th>Productivité Moyenne (unités/heure)</th>
+                                    <th>Productivité Max (unités/heure)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in data.productivite %}
+                                <tr>
+                                    <td>{{ row.ligne_nom }}</td>
+                                    <td>{{ row.productivite_moyenne | round(2) if row.productivite_moyenne else 'N/A' }}</td>
+                                    <td>{{ row.productivite_max | round(2) if row.productivite_max else 'N/A' }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="3" class="text-center">Aucune donnée de productivité.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-warning text-center" role="alert">
+                Aucune donnée disponible pour la période sélectionnée ou pour ce rapport.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block custom_js %}
+<script src="{{ url_for('static', filename='js/flatpickr.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/flatpickr.fr.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr(".flatpickr", {
+            dateFormat: "Y-m-d",
+            locale: "fr",
+            allowInput: true, // Permet la saisie manuelle
+            defaultDate: "{{ request.args.get('date_debut', data.date_debut_orig if data else '') }}" // Ensure correct default for start date
+        });
+        // For end date, ensure its default is also set if available
+        flatpickr("#date_fin", {
+             dateFormat: "Y-m-d",
+             locale: "fr",
+             allowInput: true,
+             defaultDate: "{{ request.args.get('date_fin', data.date_fin_orig if data else '') }}"
+        });
+    });
+</script>
+{% endblock %}

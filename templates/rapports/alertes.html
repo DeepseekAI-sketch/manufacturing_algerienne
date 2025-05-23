@@ -1,0 +1,381 @@
+{% extends "layout.html" %}
+
+{% block title %}Rapport des Alertes Système{% endblock %}
+
+{% block custom_css %}
+<style>
+    .stat-card {
+        text-align: center;
+        padding: 1rem;
+        border: 1px solid #e3e6f0;
+        border-radius: .35rem;
+        margin-bottom: 1.5rem;
+        background-color: #fff;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, .15) !important;
+    }
+    .stat-card .stat-value {
+        font-size: 1.75rem;
+        font-weight: bold;
+        display: block;
+        color: #4e73df; /* Default color, can be overridden */
+    }
+    .stat-card .stat-label {
+        font-size: 0.9rem;
+        color: #858796;
+        display: block;
+        margin-top: 0.25rem;
+    }
+    .stat-card.critical .stat-value { color: #e74a3b; } /* Red for critical */
+    .stat-card.high .stat-value { color: #f6c23e; } /* Yellow for high */
+    .stat-card.medium .stat-value { color: #4e73df; } /* Blue for medium */
+    .stat-card.low .stat-value { color: #1cc88a; } /* Green for low/resolved */
+
+    .alert-section .card-header {
+        background-color: #f8f9fc;
+        border-bottom: 1px solid #e3e6f0;
+    }
+    .alert-section .card-title {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #5a5c69;
+    }
+    .table-responsive {
+        margin-top: 1rem;
+    }
+    .config-section .list-group-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .form-check-input {
+        width: 1.5em;
+        height: 1.5em;
+        margin-top: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Rapport des Alertes Système</h1>
+        {# Placeholder for export button if needed in future #}
+    </div>
+
+    <!-- Statistiques Générales des Alertes -->
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h5 class="m-0 font-weight-bold text-primary">Statistiques Générales des Alertes</h5>
+                </div>
+                <div class="card-body">
+                    {% if stats %}
+                    <div class="row">
+                        <div class="col-md-2 col-sm-4"><div class="stat-card critical"><span class="stat-value">{{ stats.get('critiques', 0) }}</span><span class="stat-label">Critiques</span></div></div>
+                        <div class="col-md-2 col-sm-4"><div class="stat-card high"><span class="stat-value">{{ stats.get('hautes', 0) }}</span><span class="stat-label">Hautes</span></div></div>
+                        <div class="col-md-2 col-sm-4"><div class="stat-card medium"><span class="stat-value">{{ stats.get('moyennes', 0) }}</span><span class="stat-label">Moyennes</span></div></div>
+                        <div class="col-md-2 col-sm-4"><div class="stat-card low"><span class="stat-value">{{ stats.get('basses', 0) }}</span><span class="stat-label">Basses</span></div></div>
+                        <div class="col-md-2 col-sm-4"><div class="stat-card"><span class="stat-value">{{ stats.get('nouvelles', 0) }}</span><span class="stat-label">Nouvelles</span></div></div>
+                        <div class="col-md-2 col-sm-4"><div class="stat-card"><span class="stat-value">{{ stats.get('en_cours', 0) }}</span><span class="stat-label">En Cours</span></div></div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-2 col-sm-4"><div class="stat-card low"><span class="stat-value">{{ stats.get('resolues', 0) }}</span><span class="stat-label">Résolues</span></div></div>
+                        <div class="col-md-2 col-sm-4"><div class="stat-card"><span class="stat-value">{{ stats.get('ignorees', 0) }}</span><span class="stat-label">Ignorées</span></div></div>
+                        <div class="col-md-2 col-sm-4"><div class="stat-card"><span class="stat-value">{{ stats.get('stock', 0) }}</span><span class="stat-label">Stock</span></div></div>
+                        <div class="col-md-2 col-sm-4"><div class="stat-card"><span class="stat-value">{{ stats.get('qualite', 0) }}</span><span class="stat-label">Qualité</span></div></div>
+                        <div class="col-md-2 col-sm-4"><div class="stat-card"><span class="stat-value">{{ stats.get('maintenance', 0) }}</span><span class="stat-label">Maintenance</span></div></div>
+                        <div class="col-md-2 col-sm-4"><div class="stat-card"><span class="stat-value">{{ stats.get('production', 0) }}</span><span class="stat-label">Production</span></div></div>
+                        {# <div class="col-md-2 col-sm-4"><div class="stat-card"><span class="stat-value">{{ stats.get('securite', 0) }}</span><span class="stat-label">Sécurité</span></div></div> #}
+                    </div>
+                    {% else %}
+                    <p class="text-center text-muted">Statistiques des alertes non disponibles.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Évolution des Alertes -->
+    {% if evolution_labels and evolution_nouvelles and evolution_resolues %}
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h5 class="m-0 font-weight-bold text-primary">Évolution des Alertes (Nouvelles vs Résolues)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="alertEvolutionChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Alertes de Stock -->
+    {% if alertes and alertes.stock %}
+    <div class="card shadow mb-4 alert-section">
+        <div class="card-header py-3">
+            <h5 class="m-0 font-weight-bold text-primary card-title"><i class="fas fa-boxes me-2"></i>Alertes de Stock ({{ alertes.stock | length }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Produit</th>
+                            <th>Référence</th>
+                            <th>Entrepôt</th>
+                            <th class="text-end">Quantité Actuelle</th>
+                            <th class="text-end">Seuil d'Alerte</th>
+                            <th class="text-end">% Atteinte Seuil</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alerte in alertes.stock %}
+                        <tr>
+                            <td>{{ alerte.produit_nom }}</td>
+                            <td>{{ alerte.produit_reference }}</td>
+                            <td>{{ alerte.entrepot_nom }}</td>
+                            <td class="text-end">{{ alerte.quantite_actuelle | round(2) }}</td>
+                            <td class="text-end">{{ alerte.seuil_alerte | round(2) }}</td>
+                            <td class="text-end {% if alerte.pourcentage_seuil >= 100 %}text-danger fw-bold{% elif alerte.pourcentage_seuil >= 80 %}text-warning{% endif %}">
+                                {{ alerte.pourcentage_seuil | round(1) }}%
+                            </td>
+                            <td><a href="{{ url_for('produit_details', produit_id=alerte.produit_id) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i> Voir Produit</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Alertes de Qualité -->
+    {% if alertes and alertes.qualite %}
+    <div class="card shadow mb-4 alert-section">
+        <div class="card-header py-3">
+            <h5 class="m-0 font-weight-bold text-primary card-title"><i class="fas fa-clipboard-check me-2"></i>Alertes de Qualité ({{ alertes.qualite | length }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Produit</th>
+                            <th>Référence</th>
+                            <th>Lot/Série</th>
+                            <th>Date Contrôle</th>
+                            <th>Commentaire</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alerte in alertes.qualite %}
+                        <tr>
+                            <td>{{ alerte.produit_nom }}</td>
+                            <td>{{ alerte.produit_reference }}</td>
+                            <td>{{ alerte.lot_serie }}</td>
+                            <td>{{ alerte.date_controle.strftime('%d/%m/%Y') if alerte.date_controle else 'N/A' }}</td>
+                            <td>{{ alerte.commentaire }}</td>
+                            <td><a href="{{ url_for('qualite_details', controle_id=alerte.controle_id) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i> Voir Contrôle</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Alertes de Maintenance -->
+    {% if alertes and alertes.maintenance %}
+    <div class="card shadow mb-4 alert-section">
+        <div class="card-header py-3">
+            <h5 class="m-0 font-weight-bold text-primary card-title"><i class="fas fa-tools me-2"></i>Alertes de Maintenance ({{ alertes.maintenance | length }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Équipement</th>
+                            <th>Type de Maintenance</th>
+                            <th>Date Programmée</th>
+                            <th class="text-end">Jours de Retard</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alerte in alertes.maintenance %}
+                        <tr>
+                            <td>{{ alerte.equipement_nom }}</td>
+                            <td>{{ alerte.type_maintenance }}</td>
+                            <td>{{ alerte.date_programmee.strftime('%d/%m/%Y') if alerte.date_programmee else 'N/A' }}</td>
+                            <td class="text-end {% if alerte.jours_retard > 7 %}text-danger fw-bold{% elif alerte.jours_retard > 0 %}text-warning{% endif %}">
+                                {{ alerte.jours_retard if alerte.jours_retard is not none else 'N/A' }}
+                            </td>
+                            <td><a href="{{ url_for('maintenance_details', maintenance_id=alerte.maintenance_id) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i> Voir Maintenance</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Alertes de Production -->
+    {% if alertes and alertes.production %}
+    <div class="card shadow mb-4 alert-section">
+        <div class="card-header py-3">
+            <h5 class="m-0 font-weight-bold text-primary card-title"><i class="fas fa-cogs me-2"></i>Alertes de Production ({{ alertes.production | length }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Produit</th>
+                            <th>Référence</th>
+                            <th>Ligne de Production</th>
+                            <th>Date Production</th>
+                            <th class="text-end">Productivité Actuelle (u/h)</th>
+                            <th class="text-end">Productivité Cible (u/h)</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alerte in alertes.production %}
+                        <tr>
+                            <td>{{ alerte.produit_nom }}</td>
+                            <td>{{ alerte.produit_reference }}</td>
+                            <td>{{ alerte.ligne_nom }}</td>
+                            <td>{{ alerte.date_production.strftime('%d/%m/%Y') if alerte.date_production else 'N/A' }}</td>
+                            <td class="text-end {% if alerte.productivite_actuelle < alerte.productivite_cible %}text-warning{% endif %}">
+                                {{ alerte.productivite_actuelle | round(2) if alerte.productivite_actuelle is not none else 'N/A' }}
+                            </td>
+                            <td class="text-end">{{ alerte.productivite_cible | round(2) if alerte.productivite_cible is not none else 'N/A' }}</td>
+                             <td><a href="{{ url_for('production_details', production_id=alerte.production_id) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i> Voir Production</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if not alertes or (not alertes.stock and not alertes.qualite and not alertes.maintenance and not alertes.production) %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-info text-center" role="alert">
+                Aucune alerte active à afficher pour le moment.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Configuration des Notifications d'Alerte -->
+    <div class="card shadow mb-4 config-section">
+        <div class="card-header py-3">
+            <h5 class="m-0 font-weight-bold text-primary card-title"><i class="fas fa-bell me-2"></i>Configuration des Notifications d'Alerte</h5>
+        </div>
+        <div class="card-body">
+            {% if config %}
+            <form> {# Placeholder form, actual submission would require backend logic #}
+                <h6 class="mb-3">Types d'alertes à notifier :</h6>
+                {% for type_alerte, details in config.types_alertes.items() %}
+                <div class="list-group-item">
+                    <span>{{ details.label }}</span>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="switch_{{ type_alerte }}" name="type_{{ type_alerte }}" {% if details.active %}checked{% endif %} disabled>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <h6 class="mt-4 mb-3">Canaux de notification :</h6>
+                {% for canal, details in config.canaux.items() %}
+                <div class="list-group-item">
+                    <span>{{ details.label }}</span>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="switch_canal_{{ canal }}" name="canal_{{ canal }}" {% if details.active %}checked{% endif %} disabled>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <h6 class="mt-4 mb-3">Destinataires (par rôle) :</h6>
+                <div class="row">
+                    {% for role, details in config.destinataires.items() %}
+                    <div class="col-md-4 mb-2">
+                        <div class="list-group-item">
+                            <span>{{ role | capitalize }}</span>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="switch_role_{{ role }}" name="role_{{ role }}" {% if details.notifications_active %}checked{% endif %} disabled>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {# <button type="submit" class="btn btn-success mt-3" disabled>Enregistrer les modifications</button> #}
+                <small class="form-text text-muted mt-2 d-block">La modification des paramètres de notification n'est pas active dans cette interface.</small>
+            </form>
+            {% else %}
+            <p class="text-center text-muted">Configuration des notifications non disponible.</p>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block custom_js %}
+<script src="{{ url_for('static', filename='js/chart.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        {% if evolution_labels and evolution_nouvelles and evolution_resolues %}
+        const ctxEvolution = document.getElementById('alertEvolutionChart').getContext('2d');
+        new Chart(ctxEvolution, {
+            type: 'line',
+            data: {
+                labels: {{ evolution_labels | tojson }},
+                datasets: [{
+                    label: 'Nouvelles Alertes',
+                    data: {{ evolution_nouvelles | tojson }},
+                    borderColor: 'rgba(231, 74, 59, 1)', // Red
+                    backgroundColor: 'rgba(231, 74, 59, 0.1)',
+                    fill: true,
+                    tension: 0.1
+                }, {
+                    label: 'Alertes Résolues',
+                    data: {{ evolution_resolues | tojson }},
+                    borderColor: 'rgba(28, 200, 138, 1)', // Green
+                    backgroundColor: 'rgba(28, 200, 138, 0.1)',
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Nombre d\'Alertes' }
+                    },
+                    x: {
+                        title: { display: true, text: 'Date' }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: { mode: 'index', intersect: false }
+                }
+            }
+        });
+        {% endif %}
+    });
+</script>
+{% endblock %}

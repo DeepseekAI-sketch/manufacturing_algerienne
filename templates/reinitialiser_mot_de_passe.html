@@ -1,0 +1,85 @@
+{% extends "layout.html" %}
+
+{% block title %}Réinitialiser le Mot de Passe{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white text-center">
+                    <h4 class="mb-0"><i class="fas fa-key me-2"></i>Réinitialiser Votre Mot de Passe</h4>
+                </div>
+                <div class="card-body p-4">
+                    {# Flashed messages are typically handled in layout.html #}
+                    <p class="text-muted text-center mb-4">
+                        Veuillez entrer votre nouveau mot de passe ci-dessous. Assurez-vous qu'il est sécurisé.
+                    </p>
+                    
+                    <form method="POST" action="{{ url_for('reinitialiser_mot_de_passe', token=token) }}">
+                        {{ form.hidden_tag() }} {# For CSRF token if using Flask-WTF #}
+                        
+                        <div class="mb-3">
+                            {% if form.password.label %}
+                                {{ form.password.label(class="form-label") }}
+                            {% else %}
+                                <label for="password" class="form-label">Nouveau mot de passe</label>
+                            {% endif %}
+                            {{ form.password(class="form-control form-control-lg", required=True, placeholder="Entrez le nouveau mot de passe") }}
+                            {% if form.password.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.password.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            {% if form.confirm_password.label %}
+                                {{ form.confirm_password.label(class="form-label") }}
+                            {% else %}
+                                <label for="confirm_password" class="form-label">Confirmer le nouveau mot de passe</label>
+                            {% endif %}
+                            {{ form.confirm_password(class="form-control form-control-lg", required=True, placeholder="Confirmez le nouveau mot de passe") }}
+                            {% if form.confirm_password.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.confirm_password.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        {% if form.submit %}
+                            {{ form.submit(class="btn btn-primary btn-lg w-100") }}
+                        {% else %}
+                            <button type="submit" class="btn btn-primary btn-lg w-100">
+                                <i class="fas fa-save me-2"></i>Réinitialiser le Mot de Passe
+                            </button>
+                        {% endif %}
+                    </form>
+                </div>
+                <div class="card-footer text-center py-3">
+                    <small class="text-muted">Une fois réinitialisé, vous pourrez vous connecter avec votre nouveau mot de passe.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block custom_css %}
+<style>
+    body {
+        background-color: #f4f7f6; /* Light gray background for the page */
+    }
+    .card-header h4 {
+        font-size: 1.3rem;
+    }
+    .form-control-lg {
+        padding: 0.75rem 1.25rem;
+        font-size: 1.1rem;
+    }
+    .btn-lg {
+        padding: 0.75rem 1.25rem;
+        font-size: 1.1rem;
+    }
+</style>
+{% endblock %}
