@@ -1,0 +1,131 @@
+{% extends "layout.html" %}
+
+{% block title %}Ajouter un Nouvel Utilisateur{% endblock %}
+
+{% block custom_css %}
+<style>
+    .form-label {
+        font-weight: 500;
+    }
+    .card-header h4 {
+        font-size: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-user-plus me-2"></i>Ajouter un Nouvel Utilisateur</h4>
+                </div>
+                <div class="card-body p-4">
+                    {# Flashed messages display area #}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('parametres_utilisateur_ajouter') }}">
+                        {{ form.hidden_tag() if form else '' }} {# For CSRF token if using Flask-WTF #}
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="prenom" class="form-label">Prénom <span class="text-danger">*</span></label>
+                                {{ form.prenom(class="form-control", required=True) if form else '<input type="text" class="form-control" id="prenom" name="prenom" required>' }}
+                                {% if form and form.prenom.errors %}<div class="invalid-feedback d-block">{% for error in form.prenom.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="nom" class="form-label">Nom <span class="text-danger">*</span></label>
+                                {{ form.nom(class="form-control", required=True) if form else '<input type="text" class="form-control" id="nom" name="nom" required>' }}
+                                {% if form and form.nom.errors %}<div class="invalid-feedback d-block">{% for error in form.nom.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="nom_utilisateur" class="form-label">Nom d'utilisateur <span class="text-danger">*</span></label>
+                            {{ form.nom_utilisateur(class="form-control", required=True) if form else '<input type="text" class="form-control" id="nom_utilisateur" name="nom_utilisateur" required>' }}
+                            {% if form and form.nom_utilisateur.errors %}<div class="invalid-feedback d-block">{% for error in form.nom_utilisateur.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Adresse Email <span class="text-danger">*</span></label>
+                            {{ form.email(class="form-control", type="email", required=True) if form else '<input type="email" class="form-control" id="email" name="email" required>' }}
+                            {% if form and form.email.errors %}<div class="invalid-feedback d-block">{% for error in form.email.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="mot_de_passe" class="form-label">Mot de Passe <span class="text-danger">*</span></label>
+                                {{ form.mot_de_passe(class="form-control", type="password", required=True) if form else '<input type="password" class="form-control" id="mot_de_passe" name="mot_de_passe" required>' }}
+                                {% if form and form.mot_de_passe.errors %}<div class="invalid-feedback d-block">{% for error in form.mot_de_passe.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="confirmation" class="form-label">Confirmer le Mot de Passe <span class="text-danger">*</span></label>
+                                {{ form.confirmation(class="form-control", type="password", required=True) if form else '<input type="password" class="form-control" id="confirmation" name="confirmation" required>' }}
+                                {% if form and form.confirmation.errors %}<div class="invalid-feedback d-block">{% for error in form.confirmation.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Rôle <span class="text-danger">*</span></label>
+                            {% if form and form.role %}
+                                {{ form.role(class="form-select", required=True) }}
+                            {% else %}
+                            <select class="form-select" id="role" name="role" required>
+                                <option value="" disabled selected>Choisir un rôle...</option>
+                                <option value="admin">Administrateur</option>
+                                <option value="manager">Manager</option>
+                                <option value="supervisor">Superviseur</option>
+                                <option value="operator">Opérateur</option>
+                                <option value="viewer">Utilisateur (Consultation)</option> {# Changed from 'user' to 'viewer' as per subtask #}
+                            </select>
+                            {% endif %}
+                            {% if form and form.role.errors %}<div class="invalid-feedback d-block">{% for error in form.role.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        {% if session.role in ['admin', 'manager'] %} {# Conditional display based on session role #}
+                        <div class="mb-3 form-check">
+                            {% if form and form.envoyer_email %}
+                                {{ form.envoyer_email(class="form-check-input") }}
+                                {{ form.envoyer_email.label(class="form-check-label") }}
+                            {% else %}
+                                <input type="checkbox" class="form-check-input" id="envoyer_email" name="envoyer_email" value="y">
+                                <label class="form-check-label" for="envoyer_email">Envoyer les identifiants par email à l'utilisateur</label>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('parametres_utilisateurs') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Retour à la Liste
+                            </a>
+                            {% if form and form.submit %}
+                                {{ form.submit(class="btn btn-primary btn-lg") }}
+                            {% else %}
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-user-plus me-2"></i>Ajouter Utilisateur
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block custom_js %}
+{# Any specific JS for this page could go here #}
+{% endblock %}

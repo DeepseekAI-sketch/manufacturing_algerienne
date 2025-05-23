@@ -1,0 +1,151 @@
+{% extends "layout.html" %}
+
+{% block title %}Ajouter Composant à: {{ produit.nom if produit else 'N/A' }}{% endblock %}
+
+{% block custom_css %}
+<style>
+    .form-label {
+        font-weight: 500;
+    }
+    .card-header h4, .card-header h5 {
+        font-size: 1.35rem;
+        margin-bottom: 0;
+    }
+    .product-info-card {
+        background-color: #f8f9fa; /* Light background for info */
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    {% if produit %}
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-7">
+            <!-- Product Information Card -->
+            <div class="card shadow-sm mb-4 product-info-card">
+                <div class="card-header">
+                    <h5 class="text-primary">Produit Parent</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Nom du Produit:</strong> {{ produit.nom }}</p>
+                    <p><strong>Référence:</strong> {{ produit.reference }}</p>
+                </div>
+            </div>
+
+            <!-- Form Card -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4><i class="fas fa-plus-circle me-2"></i>Ajouter un Composant à la Nomenclature</h4>
+                </div>
+                <div class="card-body p-4">
+                    {# Flashed messages display area #}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('nomenclature_ajouter_composant', produit_id=produit.id) }}">
+                        {{ form.hidden_tag() if form else '' }} {# For CSRF token if using Flask-WTF #}
+
+                        <div class="mb-3">
+                            <label for="composant_id" class="form-label">Composant à Ajouter <span class="text-danger">*</span></label>
+                            {% if form and form.composant_id %}
+                                {{ form.composant_id(class="form-select", required=True) }}
+                            {% elif produits_disponibles %}
+                                <select class="form-select" id="composant_id" name="composant_id" required>
+                                    <option value="" disabled selected>Choisir un composant...</option>
+                                    {% for comp in produits_disponibles %}
+                                    <option value="{{ comp.id }}">{{ comp.nom }} - {{ comp.reference }} ({{ comp.type_produit_display | default(comp.type_produit | capitalize) }})</option>
+                                    {% endfor %}
+                                </select>
+                            {% else %}
+                                <p class="text-danger">Aucun produit disponible à ajouter comme composant.</p>
+                            {% endif %}
+                            {% if form and form.composant_id and form.composant_id.errors %}<div class="invalid-feedback d-block">{% for error in form.composant_id.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="quantite" class="form-label">Quantité Nécessaire <span class="text-danger">*</span></label>
+                                {{ form.quantite(class="form-control", type="number", step="0.01", min="0.000001", required=True, placeholder="Ex: 2.5") if form else '<input type="number" class="form-control" id="quantite" name="quantite" step="0.01" min="0.000001" required placeholder="Ex: 2.5">' }}
+                                {% if form and form.quantite.errors %}<div class="invalid-feedback d-block">{% for error in form.quantite.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="unite_mesure" class="form-label">Unité de Mesure <span class="text-danger">*</span></label>
+                                {{ form.unite_mesure(class="form-control", required=True, placeholder="Ex: unité, kg, m, L") if form else '<input type="text" class="form-control" id="unite_mesure" name="unite_mesure" required placeholder="Ex: unité, kg, m, L">' }}
+                                <small class="form-text text-muted">Sera pré-remplie par l'unité du composant si disponible, sinon celle du parent.</small>
+                                {% if form and form.unite_mesure.errors %}<div class="invalid-feedback d-block">{% for error in form.unite_mesure.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('nomenclature_produit', produit_id=produit.id) }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Retour à la Nomenclature
+                            </a>
+                            {% if form and form.submit %}
+                                {{ form.submit(class="btn btn-primary btn-lg") }}
+                            {% else %}
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-plus-circle me-2"></i>Ajouter Composant
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-danger text-center" role="alert">
+        Produit parent non trouvé. Impossible d'ajouter un composant.
+        <a href="{{ url_for('produits_liste') }}" class="alert-link">Retour à la liste des produits</a>.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block custom_js %}
+<script>
+// Optional: Script to auto-fill unite_mesure based on selected composant_id
+// This requires `produits_disponibles` to have 'unite_mesure' and to be accessible as JSON
+document.addEventListener('DOMContentLoaded', function() {
+    const composantSelect = document.getElementById('composant_id');
+    const uniteMesureInput = document.getElementById('unite_mesure');
+    
+    {% if produits_disponibles %}
+    const produitsDisponiblesData = {{ produits_disponibles | tojson }};
+    let produitsMap = {};
+    produitsDisponiblesData.forEach(p => {
+        produitsMap[p.id.toString()] = p.unite_mesure || '{{ produit.unite_mesure | default("unité") }}'; 
+    });
+
+    if (composantSelect && uniteMesureInput) {
+        composantSelect.addEventListener('change', function() {
+            const selectedProduitId = this.value;
+            if (selectedProduitId && produitsMap[selectedProduitId]) {
+                uniteMesureInput.value = produitsMap[selectedProduitId];
+            } else if (selectedProduitId) {
+                // Fallback if selected product has no unit, use parent's unit
+                uniteMesureInput.value = '{{ produit.unite_mesure | default("unité") }}';
+            } else {
+                uniteMesureInput.value = ''; // Clear if no selection
+            }
+        });
+        // Trigger change on load if a value is already selected (e.g. form resubmission with errors)
+        if(composantSelect.value) {
+            composantSelect.dispatchEvent(new Event('change'));
+        }
+    }
+    {% endif %}
+});
+</script>
+{% endblock %}

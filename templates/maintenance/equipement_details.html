@@ -1,21 +1,271 @@
 {% extends "layout.html" %}
 
-{% block title %}Détails de l'Équipement{% endblock %}
+{% block title %}Détails Équipement: {{ equipement.nom if equipement else 'N/A' }}{% endblock %}
+
+{% block custom_css %}
+<style>
+    .card-header h5, .card-header h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-bottom: 0;
+    }
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .badge { font-size: 0.9em; }
+    .nav-tabs .nav-link.active { font-weight: bold; }
+    .stat-card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #e3e6f0;
+        border-radius: .35rem;
+        background-color: #fff;
+        text-align: center;
+    }
+    .stat-card .stat-value {
+        font-size: 1.75rem;
+        font-weight: bold;
+        display: block;
+        color: #4e73df;
+    }
+    .stat-card .stat-label {
+        font-size: 0.9rem;
+        color: #858796;
+    }
+    .graph-container img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #dee2e6;
+        border-radius: .25rem;
+    }
+    .action-buttons .btn, .action-buttons form {
+        margin-right: 5px;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Détails de l'Équipement de Maintenance</h3>
+<div class="container-fluid mt-4">
+    {% if equipement %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-cogs me-2"></i>Détails de l'Équipement: {{ equipement.nom }}</h1>
+        <div class="action-buttons">
+            {% if has_permission('supervisor') %}
+            <a href="{{ url_for('parametres_equipement_modifier', equipement_id=equipement.id) }}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-edit me-1"></i> Modifier l'Équipement
+            </a>
+            {% endif %}
+            {% if has_permission('operator') %}
+            <a href="{{ url_for('maintenance_ajouter', equipement_id=equipement.id) }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-calendar-plus me-1"></i> Planifier Maintenance
+            </a>
+            {% endif %}
+             <a href="{{ url_for('maintenance_equipements') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> Retour à la Liste
+            </a>
+        </div>
+    </div>
+
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                <div class="card-body">
-                    <!-- Informations détaillées sur un équipement -->
-                    <p>Détails spécifiques d'un équipement...</p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Primary Equipment Information -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5>Informations Générales</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Nom de l'Équipement:</strong> {{ equipement.nom }}</p>
+                    <p><strong>Numéro de Série:</strong> {{ equipement.numero_serie | default('N/A', true) }}</p>
+                    <p><strong>Fabricant:</strong> {{ equipement.fabricant | default('N/A', true) }}</p>
+                    <p><strong>Modèle:</strong> {{ equipement.modele | default('N/A', true) }}</p>
+                    <p><strong>Description:</strong> {{ equipement.description | nl2br | default('N/A', true) }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Date d'Acquisition:</strong> {{ equipement.date_acquisition | format_date if equipement.date_acquisition else 'N/A' }}</p>
+                    <p><strong>Date de Mise en Service:</strong> {{ equipement.date_mise_service | format_date if equipement.date_mise_service else 'N/A' }}</p>
+                    <p><strong>Ligne de Production:</strong> 
+                        {% if equipement.ligne_production_id %}
+                        <a href="{{ url_for('production_ligne_details', ligne_id=equipement.ligne_production_id) }}">
+                            {{ equipement.ligne_nom | default('N/A', true) }}
+                        </a>
+                        {% else %}
+                        {{ equipement.ligne_nom | default('N/A', true) }}
+                        {% endif %}
+                    </p>
+                    <p><strong>Statut:</strong> 
+                        <span class="badge {{ equipement.classe_statut | default('bg-secondary') }}">
+                            {{ equipement.statut_affichage | default(equipement.statut | capitalize if equipement.statut else 'Inconnu') }}
+                        </span>
+                    </p>
+                    <p><strong>Créé par:</strong> {{ equipement.prenom ~ ' ' ~ equipement.nom_utilisateur if equipement.prenom and equipement.nom_utilisateur else equipement.nom_utilisateur | default('Système', true) }}</p>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Maintenance Types Graph -->
+    {% if equipement.graphique_types %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Répartition des Types de Maintenance (Historique)</h5>
+        </div>
+        <div class="card-body text-center graph-container">
+            <img src="data:image/png;base64,{{ equipement.graphique_types }}" alt="Graphique des types de maintenance">
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabs for Additional Details -->
+    <ul class="nav nav-tabs mb-3" id="equipementDetailsTab" role="tablist">
+        <li class="nav-item" role="presentation"><button class="nav-link active" id="maint-history-tab" data-bs-toggle="tab" data-bs-target="#maint-history" type="button" role="tab">Historique des Maintenances</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" id="interventions-tab" data-bs-toggle="tab" data-bs-target="#interventions" type="button" role="tab">Interventions Récentes</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" id="maint-stats-tab" data-bs-toggle="tab" data-bs-target="#maint-stats" type="button" role="tab">Statistiques de Maintenance</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" id="frequent-parts-tab" data-bs-toggle="tab" data-bs-target="#frequent-parts" type="button" role="tab">Pièces Remplacées Fréquemment</button></li>
+    </ul>
+
+    <div class="tab-content" id="equipementDetailsTabContent">
+        <!-- Historique des Maintenances -->
+        <div class="tab-pane fade show active" id="maint-history" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    {% if maintenances %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-hover">
+                            <thead><tr><th>Type</th><th>Date Programmée</th><th>Date Fin</th><th class="text-end">Durée (h)</th><th class="text-center">Statut</th><th class="text-center">Priorité</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {% for maint in maintenances %}
+                                <tr>
+                                    <td>{{ maint.type_nom }}</td>
+                                    <td>{{ maint.date_programmee | format_datetime if maint.date_programmee else 'N/A' }}</td>
+                                    <td>{{ maint.date_fin | format_datetime if maint.date_fin else 'N/A' }}</td>
+                                    <td class="text-end">{{ maint.duree_reelle | round(1) if maint.duree_reelle is not none else (maint.duree_estimee | round(1) if maint.duree_estimee is not none else 'N/A') }}</td>
+                                    <td class="text-center"><span class="badge {{ maint.classe_statut | default('bg-secondary') }}">{{ maint.statut_affichage | default(maint.statut | capitalize if maint.statut else 'N/A') }}</span></td>
+                                    <td class="text-center"><span class="badge {{ maint.classe_priorite | default('bg-secondary') }}">{{ maint.priorite | capitalize if maint.priorite else 'N/A' }}</span></td>
+                                    <td><a href="{{ url_for('maintenance_details', maintenance_id=maint.id) }}" class="btn btn-xs btn-outline-info"><i class="fas fa-eye"></i></a></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}<p class="text-center text-muted">Aucun historique de maintenance pour cet équipement.</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Interventions Récentes -->
+        <div class="tab-pane fade" id="interventions" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    {% if interventions %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-hover">
+                            <thead><tr><th>Date</th><th>Type Maintenance</th><th class="text-end">Durée Réelle (h)</th><th>Description</th><th>Pièces</th><th>Intervenant</th></tr></thead>
+                            <tbody>
+                                {% for interv in interventions %}
+                                <tr>
+                                    <td>{{ interv.date_intervention | format_datetime if interv.date_intervention else 'N/A' }}</td>
+                                    <td>{{ interv.type_maintenance_nom | default('N/A', true) }}</td>
+                                    <td class="text-end">{{ interv.duree_reelle | round(1) if interv.duree_reelle is not none else 'N/A' }}</td>
+                                    <td>{{ interv.description | nl2br | default('N/A', true) | truncate(100) }}</td>
+                                    <td>{{ interv.pieces_remplacees | nl2br | default('Aucune', true) | truncate(50) }}</td>
+                                    <td>{{ interv.utilisateur_nom | default('N/A', true) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}<p class="text-center text-muted">Aucune intervention récente enregistrée pour cet équipement.</p>{% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Statistiques de Maintenance -->
+        <div class="tab-pane fade" id="maint-stats" role="tabpanel">
+            <div class="card shadow-sm">
+                 <div class="card-header bg-light"><h5 class="mb-0">Statistiques Globales de Maintenance</h5></div>
+                <div class="card-body">
+                    {% if stats %}
+                    <div class="row">
+                        <div class="col-md-3 col-sm-6 mb-3"><div class="stat-card"><span class="stat-value">{{ stats.total_maintenances | default(0) }}</span><span class="stat-label">Total Maintenances</span></div></div>
+                        <div class="col-md-3 col-sm-6 mb-3"><div class="stat-card"><span class="stat-value">{{ stats.maintenances_terminees | default(0) }}</span><span class="stat-label">Terminées</span></div></div>
+                        <div class="col-md-3 col-sm-6 mb-3"><div class="stat-card"><span class="stat-value">{{ stats.maintenances_en_cours | default(0) }}</span><span class="stat-label">En Cours</span></div></div>
+                        <div class="col-md-3 col-sm-6 mb-3"><div class="stat-card"><span class="stat-value">{{ stats.maintenances_planifiees | default(0) }}</span><span class="stat-label">Planifiées</span></div></div>
+                        <div class="col-md-3 col-sm-6 mb-3"><div class="stat-card"><span class="stat-value">{{ (stats.duree_moyenne_maintenance_heures | default(0)) | round(1) }} h</span><span class="stat-label">Durée Moyenne</span></div></div>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="stat-card">
+                                <span class="stat-label">Dernière Maintenance:</span>
+                                <span class="stat-value fs-5">{{ stats.date_derniere_maintenance | format_date if stats.date_derniere_maintenance else 'Jamais' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}<p class="text-center text-muted">Statistiques de maintenance non disponibles pour cet équipement.</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Pièces Remplacées Fréquemment -->
+        <div class="tab-pane fade" id="frequent-parts" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light"><h5 class="mb-0">Pièces Remplacées Fréquemment</h5></div>
+                <div class="card-body">
+                    {% if equipement.pieces_frequentes and equipement.pieces_frequentes.items() | length > 0 %}
+                        <ul class="list-group">
+                        {% for piece, count in equipement.pieces_frequentes.items() %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ piece }}
+                                <span class="badge bg-primary rounded-pill">{{ count }}</span>
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-center text-muted">Aucune donnée sur les pièces remplacées fréquemment pour cet équipement.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-danger text-center" role="alert">
+        Les détails de cet équipement n'ont pas pu être chargés.
+        <a href="{{ url_for('maintenance_equipements') }}" class="alert-link">Retour à la liste des équipements</a>.
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block custom_js %}
+<script>
+    // Optional: Activate tab from URL hash
+    document.addEventListener('DOMContentLoaded', function() {
+        var hash = window.location.hash;
+        if (hash) {
+            var triggerEl = document.querySelector('#equipementDetailsTab button[data-bs-target="' + hash + '"]');
+            if (triggerEl) {
+                var tab = new bootstrap.Tab(triggerEl);
+                tab.show();
+            }
+        }
+        // Update URL hash when tab changes
+        var tabElms = document.querySelectorAll('#equipementDetailsTab button[data-bs-toggle="tab"]');
+        tabElms.forEach(function(tabElm) {
+            tabElm.addEventListener('shown.bs.tab', function (event) {
+                history.pushState(null, null, event.target.dataset.bsTarget);
+            });
+        });
+    });
+</script>
 {% endblock %}

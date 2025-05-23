@@ -1,0 +1,250 @@
+{% extends "layout.html" %}
+
+{% block title %}Paramètres du Système{% endblock %}
+
+{% block custom_css %}
+<style>
+    .settings-card {
+        border-left-width: 4px;
+        transition: all 0.2s ease-in-out;
+    }
+    .settings-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    }
+    .settings-card .card-body {
+        display: flex;
+        align-items: center;
+        padding: 1.25rem;
+    }
+    .settings-card .icon-container {
+        font-size: 2rem;
+        margin-right: 1.5rem;
+        width: 50px; /* Fixed width for icon alignment */
+        text-align: center;
+    }
+    .settings-card .card-title {
+        margin-bottom: 0.25rem;
+        font-size: 1.15rem;
+        font-weight: 500;
+    }
+    .settings-card .card-text {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    .settings-category-title {
+        font-size: 1.5rem;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #007bff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-cogs me-2"></i>Paramètres du Système</h1>
+    </div>
+
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Catégorie: Général -->
+    <h2 class="settings-category-title mt-4">Général</h2>
+    <div class="row">
+        {% if available_routes.get('parametres_utilisateurs') %}
+        <div class="col-xl-4 col-md-6 mb-4">
+            <a href="{{ url_for('parametres_utilisateurs') }}" class="text-decoration-none">
+                <div class="card shadow-sm settings-card border-start-primary h-100">
+                    <div class="card-body">
+                        <div class="icon-container text-primary"><i class="fas fa-users-cog"></i></div>
+                        <div>
+                            <h5 class="card-title">Gestion des Utilisateurs</h5>
+                            <p class="card-text">Gérer les comptes, rôles et permissions des utilisateurs.</p>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Catégorie: Production et Produits -->
+    <h2 class="settings-category-title mt-4">Production et Produits</h2>
+    <div class="row">
+        {% if available_routes.get('parametres_lignes_production') %}
+        <div class="col-xl-4 col-md-6 mb-4">
+            <a href="{{ url_for('parametres_lignes_production') }}" class="text-decoration-none">
+                <div class="card shadow-sm settings-card border-start-success h-100">
+                    <div class="card-body">
+                        <div class="icon-container text-success"><i class="fas fa-industry"></i></div>
+                        <div>
+                            <h5 class="card-title">Lignes de Production</h5>
+                            <p class="card-text">Configurer les lignes et postes de production.</p>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+        {% if available_routes.get('parametres_equipements') %}
+        <div class="col-xl-4 col-md-6 mb-4">
+            <a href="{{ url_for('parametres_equipements') }}" class="text-decoration-none">
+                <div class="card shadow-sm settings-card border-start-success h-100">
+                    <div class="card-body">
+                        <div class="icon-container text-success"><i class="fas fa-tools"></i></div>
+                        <div>
+                            <h5 class="card-title">Équipements</h5>
+                            <p class="card-text">Gérer les équipements et machines.</p>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+         {% if available_routes.get('parametres_types_maintenance') %}
+        <div class="col-xl-4 col-md-6 mb-4">
+            <a href="{{ url_for('parametres_types_maintenance') }}" class="text-decoration-none">
+                <div class="card shadow-sm settings-card border-start-success h-100">
+                    <div class="card-body">
+                        <div class="icon-container text-success"><i class="fas fa-wrench"></i></div>
+                        <div>
+                            <h5 class="card-title">Types de Maintenance</h5>
+                            <p class="card-text">Définir les types d'interventions de maintenance.</p>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+        {% if available_routes.get('parametres_categories_produits') %}
+        <div class="col-xl-4 col-md-6 mb-4">
+            <a href="{{ url_for('parametres_categories_produits') }}" class="text-decoration-none">
+                <div class="card shadow-sm settings-card border-start-success h-100">
+                    <div class="card-body">
+                        <div class="icon-container text-success"><i class="fas fa-tags"></i></div>
+                        <div>
+                            <h5 class="card-title">Catégories de Produits</h5>
+                            <p class="card-text">Gérer les catégories des produits.</p>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+         {% if available_routes.get('parametres_normes') %}
+        <div class="col-xl-4 col-md-6 mb-4">
+            <a href="{{ url_for('parametres_normes') }}" class="text-decoration-none">
+                <div class="card shadow-sm settings-card border-start-success h-100">
+                    <div class="card-body">
+                        <div class="icon-container text-success"><i class="fas fa-certificate"></i></div>
+                        <div>
+                            <h5 class="card-title">Normes de Qualité</h5>
+                            <p class="card-text">Gérer les normes et standards de qualité.</p>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Catégorie: Logistique -->
+    <h2 class="settings-category-title mt-4">Logistique</h2>
+     <div class="row">
+        {% if available_routes.get('parametres_entrepots') %}
+        <div class="col-xl-4 col-md-6 mb-4">
+            <a href="{{ url_for('parametres_entrepots') }}" class="text-decoration-none">
+                <div class="card shadow-sm settings-card border-start-info h-100">
+                    <div class="card-body">
+                        <div class="icon-container text-info"><i class="fas fa-warehouse"></i></div>
+                        <div>
+                            <h5 class="card-title">Entrepôts</h5>
+                            <p class="card-text">Gérer les entrepôts et zones de stockage.</p>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Catégorie: Données et Système -->
+    <h2 class="settings-category-title mt-4">Données et Système</h2>
+    <div class="row">
+        <div class="col-xl-4 col-md-6 mb-4"> {# Assumed available #}
+            <a href="{{ url_for('parametres_importer') }}" class="text-decoration-none">
+                <div class="card shadow-sm settings-card border-start-warning h-100">
+                    <div class="card-body">
+                        <div class="icon-container text-warning"><i class="fas fa-file-import"></i></div>
+                        <div>
+                            <h5 class="card-title">Importation de Données</h5>
+                            <p class="card-text">Importer des données en masse (produits, stocks, etc.).</p>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% if available_routes.get('parametres_database') %}
+        <div class="col-xl-4 col-md-6 mb-4">
+            <a href="{{ url_for('parametres_database') }}" class="text-decoration-none">
+                <div class="card shadow-sm settings-card border-start-danger h-100">
+                    <div class="card-body">
+                        <div class="icon-container text-danger"><i class="fas fa-database"></i></div>
+                        <div>
+                            <h5 class="card-title">Base de Données</h5>
+                            <p class="card-text">Gérer la base de données, sauvegardes, etc.</p>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+        <div class="col-xl-4 col-md-6 mb-4"> {# Assumed available #}
+            <a href="{{ url_for('parametres_logs') }}" class="text-decoration-none">
+                <div class="card shadow-sm settings-card border-start-secondary h-100">
+                    <div class="card-body">
+                        <div class="icon-container text-secondary"><i class="fas fa-clipboard-list"></i></div>
+                        <div>
+                            <h5 class="card-title">Logs Système</h5>
+                            <p class="card-text">Consulter les journaux d'événements du système.</p>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% if available_routes.get('parametres_systeme') %}
+        <div class="col-xl-4 col-md-6 mb-4">
+            <a href="{{ url_for('parametres_systeme') }}" class="text-decoration-none">
+                <div class="card shadow-sm settings-card border-start-dark h-100">
+                    <div class="card-body">
+                        <div class="icon-container text-dark"><i class="fas fa-server"></i></div>
+                        <div>
+                            <h5 class="card-title">Informations Système</h5>
+                            <p class="card-text">Voir les informations et configurations du système.</p>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block custom_js %}
+{# Any specific JS for this page could go here #}
+{% endblock %}

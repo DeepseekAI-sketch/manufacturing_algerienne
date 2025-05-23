@@ -1,21 +1,262 @@
 {% extends "layout.html" %}
 
-{% block title %}Rapports Qualité{% endblock %}
+{% block title %}Rapport d'Analyse de la Qualité{% endblock %}
+
+{% block custom_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr.min.css') }}">
+<style>
+    .stat-card {
+        text-align: center;
+        padding: 1rem;
+        border: 1px solid #e3e6f0;
+        border-radius: .35rem;
+        margin-bottom: 1.5rem;
+        background-color: #fff;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, .15) !important;
+    }
+    .stat-card .stat-value {
+        font-size: 1.75rem;
+        font-weight: bold;
+        display: block;
+        color: #4e73df; /* Default color */
+    }
+    .stat-card .stat-label {
+        font-size: 0.9rem;
+        color: #858796;
+        display: block;
+        margin-top: 0.25rem;
+    }
+    .stat-card.success .stat-value { color: #1cc88a; } /* Green for conformes/high rate */
+    .stat-card.danger .stat-value { color: #e74a3b; } /* Red for non-conformes/low rate */
+
+    .card-header h5 {
+        font-size: 1.25rem;
+        font-weight: bold;
+    }
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .graph-container {
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: .25rem;
+        text-align: center; /* Center images */
+    }
+    .graph-container img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #dee2e6;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Rapports et Analyses Qualité</h3>
+<div class="container-fluid mt-4">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-chart-pie me-2"></i>Rapport d'Analyse de la Qualité</h1>
+        {# Optional: Export button or other actions can be added here #}
+        {# <a href="{{ url_for('qualite_rapport_export', date_debut=request.args.get('date_debut'), date_fin=request.args.get('date_fin')) }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-download fa-sm text-white-50"></i> Exporter en PDF
+        </a> #}
+    </div>
+
+    <!-- Flashed Messages (if any) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                <div class="card-body">
-                    <!-- Interface pour la génération et la visualisation des rapports qualité -->
-                    <p>Graphiques et tableaux pour l'analyse de la qualité...</p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Filter Form -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Filtrer le Rapport</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('qualite_rapport') }}">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label for="date_debut" class="form-label">Date de début</label>
+                        <input type="text" class="form-control flatpickr" id="date_debut" name="date_debut" value="{{ request.args.get('date_debut', default_start_date if default_start_date else '') }}" placeholder="YYYY-MM-DD">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="date_fin" class="form-label">Date de fin</label>
+                        <input type="text" class="form-control flatpickr" id="date_fin" name="date_fin" value="{{ request.args.get('date_fin', default_end_date if default_end_date else '') }}" placeholder="YYYY-MM-DD">
+                    </div>
+                    <div class="col-md-auto">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i>Appliquer Filtres</button>
+                        <a href="{{ url_for('qualite_rapport') }}" class="btn btn-outline-secondary ms-2"><i class="fas fa-undo me-1"></i>Réinitialiser</a>
+                    </div>
                 </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Global Quality Statistics -->
+    {% if statistiques and statistiques.global %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Statistiques Globales de Qualité</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md col-sm-6 mb-3"><div class="stat-card"><span class="stat-value">{{ statistiques.global.total_controles | default(0) }}</span><span class="stat-label">Total Contrôles</span></div></div>
+                <div class="col-md col-sm-6 mb-3"><div class="stat-card success"><span class="stat-value">{{ statistiques.global.nb_conformes | default(0) }}</span><span class="stat-label">Conformes</span></div></div>
+                <div class="col-md col-sm-6 mb-3"><div class="stat-card danger"><span class="stat-value">{{ statistiques.global.nb_non_conformes | default(0) }}</span><span class="stat-label">Non Conformes</span></div></div>
+                <div class="col-md col-sm-6 mb-3"><div class="stat-card"><span class="stat-value">{{ statistiques.global.nb_en_attente | default(0) }}</span><span class="stat-label">En Attente</span></div></div>
+                <div class="col-md col-sm-6 mb-3"><div class="stat-card success"><span class="stat-value">{{ statistiques.global.taux_conformite | round(2) | default(0) }}%</span><span class="stat-label">Taux de Conformité Global</span></div></div>
             </div>
         </div>
     </div>
+    {% endif %}
+
+    <!-- Graphs Section: Evolution and Types -->
+    <div class="row">
+        {% if graphiques and graphiques.evolution %}
+        <div class="col-xl-7 col-lg-12 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Évolution du Taux de Conformité</h5>
+                </div>
+                <div class="card-body graph-container">
+                    <img src="data:image/png;base64,{{ graphiques.evolution }}" alt="Graphique d'évolution du taux de conformité">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if graphiques and graphiques.types %}
+        <div class="col-xl-5 col-lg-12 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Répartition des Contrôles par Type</h5>
+                </div>
+                <div class="card-body graph-container">
+                    <img src="data:image/png;base64,{{ graphiques.types }}" alt="Graphique des contrôles par type">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Product Quality Performance Table -->
+    {% if statistiques and statistiques.produits %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Performance Qualité par Produit (Top 20 par Taux de Conformité Croissant)</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Produit</th>
+                            <th>Réf.</th>
+                            <th class="text-end">Nb Contrôles</th>
+                            <th class="text-end">Conformes</th>
+                            <th class="text-end">Non Conformes</th>
+                            <th class="text-end">Taux Conformité (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prod_stat in statistiques.produits %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('produit_details', produit_id=prod_stat.produit_id) }}">
+                                    {{ prod_stat.produit_nom | default('N/A', true) }}
+                                </a>
+                            </td>
+                            <td>{{ prod_stat.reference | default('N/A', true) }}</td>
+                            <td class="text-end">{{ prod_stat.nb_controles | default(0) }}</td>
+                            <td class="text-end">{{ prod_stat.nb_conformes | default(0) }}</td>
+                            <td class="text-end">{{ prod_stat.nb_non_conformes | default(0) }}</td>
+                            <td class="text-end {% if prod_stat.taux_conformite < 75 %}text-danger{% elif prod_stat.taux_conformite < 90 %}text-warning{% else %}text-success{% endif %} fw-bold">
+                                {{ prod_stat.taux_conformite | round(2) if prod_stat.taux_conformite is not none else 'N/A' }}%
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Quality Performance by Control Type Table -->
+    {% if statistiques and statistiques.types %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Performance Qualité par Type de Contrôle</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Type de Contrôle</th>
+                            <th class="text-end">Nb Contrôles</th>
+                            <th class="text-end">Conformes</th>
+                            <th class="text-end">Non Conformes</th>
+                            <th class="text-end">Taux Conformité (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for type_stat in statistiques.types %}
+                        <tr>
+                            <td>{{ type_stat.type_controle | default('N/A', true) }}</td>
+                            <td class="text-end">{{ type_stat.nb_controles | default(0) }}</td>
+                            <td class="text-end">{{ type_stat.nb_conformes | default(0) }}</td>
+                            <td class="text-end">{{ type_stat.nb_non_conformes | default(0) }}</td>
+                            <td class="text-end {% if type_stat.taux_conformite < 75 %}text-danger{% elif type_stat.taux_conformite < 90 %}text-warning{% else %}text-success{% endif %} fw-bold">
+                                {{ type_stat.taux_conformite | round(2) if type_stat.taux_conformite is not none else 'N/A' }}%
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Product Conformity Rate Graph -->
+    {% if graphiques and graphiques.produits %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Taux de Conformité par Produit (Top/Bottom)</h5>
+        </div>
+        <div class="card-body graph-container">
+            <img src="data:image/png;base64,{{ graphiques.produits }}" alt="Graphique du taux de conformité par produit">
+        </div>
+    </div>
+    {% endif %}
+
+
+    {% if not statistiques and not graphiques %}
+    <div class="alert alert-info text-center" role="alert">
+        Aucune donnée de rapport qualité disponible pour la période sélectionnée.
+    </div>
+    {% endif %}
+
 </div>
+{% endblock %}
+
+{% block custom_js %}
+<script src="{{ url_for('static', filename='js/flatpickr.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/flatpickr.fr.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr(".flatpickr", {
+            dateFormat: "Y-m-d",
+            locale: "fr",
+            allowInput: true
+        });
+    });
+</script>
 {% endblock %}

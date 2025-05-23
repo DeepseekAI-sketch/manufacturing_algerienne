@@ -1,21 +1,238 @@
 {% extends "layout.html" %}
 
-{% block title %}Liste des Interventions{% endblock %}
+{% block title %}Liste des Maintenances{% endblock %}
+
+{% block custom_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr.min.css') }}">
+<style>
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .action-buttons .btn {
+        margin-right: 5px;
+    }
+    .stat-card {
+        text-align: center;
+        padding: 1rem;
+        border: 1px solid #e3e6f0;
+        border-radius: .35rem;
+        margin-bottom: 1.5rem;
+        background-color: #fff;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, .15) !important;
+    }
+    .stat-card .stat-value {
+        font-size: 1.75rem;
+        font-weight: bold;
+        display: block;
+        color: #4e73df;
+    }
+    .stat-card .stat-label {
+        font-size: 0.9rem;
+        color: #858796;
+    }
+    .badge { font-size: 0.9em; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Interventions de Maintenance</h3>
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-tools me-2"></i>Liste des Maintenances</h1>
+        {% if has_permission('operator') %}
+        <a href="{{ url_for('maintenance_ajouter') }}" class="btn btn-primary">
+            <i class="fas fa-plus-circle me-1"></i> Planifier Maintenance
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                <div class="card-body">
-                    <!-- Tableau des interventions de maintenance ici -->
-                    <p>Tableau des interventions...</p>
-                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Statistics -->
+    {% if statistiques %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Statistiques Générales des Maintenances</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md col-sm-6 mb-2"><div class="stat-card"><span class="stat-value">{{ statistiques.get('total', 0) }}</span><span class="stat-label">Total</span></div></div>
+                <div class="col-md col-sm-6 mb-2"><div class="stat-card"><span class="stat-value">{{ statistiques.get('planifiees', 0) }}</span><span class="stat-label">Planifiées</span></div></div>
+                <div class="col-md col-sm-6 mb-2"><div class="stat-card"><span class="stat-value">{{ statistiques.get('en_cours', 0) }}</span><span class="stat-label">En Cours</span></div></div>
+                <div class="col-md col-sm-6 mb-2"><div class="stat-card"><span class="stat-value">{{ statistiques.get('terminees', 0) }}</span><span class="stat-label">Terminées</span></div></div>
+                <div class="col-md col-sm-6 mb-2"><div class="stat-card"><span class="stat-value">{{ statistiques.get('annulees', 0) }}</span><span class="stat-label">Annulées</span></div></div>
+                <div class="col-md col-sm-6 mb-2"><div class="stat-card"><span class="stat-value">{{ statistiques.get('priorite_haute', 0) }}</span><span class="stat-label">Priorité Haute</span></div></div>
             </div>
         </div>
     </div>
+    {% endif %}
+
+    <!-- Filtres -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('maintenance_liste') }}" class="row gx-3 gy-2 align-items-end">
+                <div class="col-md-3">
+                    <label for="equipement_id" class="form-label">Équipement</label>
+                    <select class="form-select" id="equipement_id" name="equipement_id">
+                        <option value="">Tous les équipements</option>
+                        {% for equip in equipements_filtre %} {# Changed from 'equipements' #}
+                        <option value="{{ equip.id }}" {% if filtres and filtres.equipement_id == equip.id|string %}selected{% endif %}>{{ equip.nom }} ({{ equip.reference }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="type_maintenance_id" class="form-label">Type</label>
+                    <select class="form-select" id="type_maintenance_id" name="type_maintenance_id">
+                        <option value="">Tous les types</option>
+                        {% for type_m in types_maintenance_filtre %} {# Changed from 'types_maintenance' #}
+                        <option value="{{ type_m.id }}" {% if filtres and filtres.type_maintenance_id == type_m.id|string %}selected{% endif %}>{{ type_m.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="statut" class="form-label">Statut</label>
+                    <select class="form-select" id="statut" name="statut">
+                        <option value="">Tous les statuts</option>
+                        {% for code, nom_statut in statuts_filtre %} {# Changed from 'statuts' #}
+                        <option value="{{ code }}" {% if filtres and filtres.statut == code %}selected{% endif %}>{{ nom_statut }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                 <div class="col-md-2">
+                    <label for="priorite" class="form-label">Priorité</label>
+                    <select class="form-select" id="priorite" name="priorite">
+                        <option value="">Toutes les priorités</option>
+                        {% for code_prio, nom_prio in priorites_filtre %} {# Changed from 'priorites' #}
+                        <option value="{{ code_prio }}" {% if filtres and filtres.priorite == code_prio %}selected{% endif %}>{{ nom_prio }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="date_debut" class="form-label">Date Début</label>
+                    <input type="text" class="form-control flatpickr" id="date_debut" name="date_debut" placeholder="YYYY-MM-DD" value="{{ filtres.date_debut if filtres and filtres.date_debut else '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="date_fin" class="form-label">Date Fin</label>
+                    <input type="text" class="form-control flatpickr" id="date_fin" name="date_fin" placeholder="YYYY-MM-DD" value="{{ filtres.date_fin if filtres and filtres.date_fin else '' }}">
+                </div>
+                <div class="col-md-auto">
+                    <button type="submit" class="btn btn-info"><i class="fas fa-filter me-1"></i>Filtrer</button>
+                    <a href="{{ url_for('maintenance_liste') }}" class="btn btn-outline-secondary ms-2"><i class="fas fa-undo me-1"></i>Réinitialiser</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tableau des Maintenances -->
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Équipement</th>
+                            <th>Ligne</th>
+                            <th>Type</th>
+                            <th>Date Programmée</th>
+                            <th class="text-end">Durée Estimée (h)</th>
+                            <th class="text-center">Priorité</th>
+                            <th class="text-center">Statut</th>
+                            <th>Demandeur</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if maintenances %}
+                            {% for maintenance in maintenances %}
+                            <tr>
+                                <td>{{ maintenance.equipement_nom }}</td>
+                                <td>{{ maintenance.ligne_nom | default('N/A', true) }}</td>
+                                <td>{{ maintenance.type_nom }}</td>
+                                <td>{{ maintenance.date_programmee | format_datetime if maintenance.date_programmee else 'N/A' }}</td>
+                                <td class="text-end">{{ maintenance.duree_estimee | round(1) if maintenance.duree_estimee is not none else 'N/A' }}</td>
+                                <td class="text-center">
+                                    <span class="badge {{ maintenance.classe_priorite | default('bg-secondary') }}">
+                                        {{ maintenance.priorite | capitalize if maintenance.priorite else 'N/A' }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge {{ maintenance.classe_statut | default('bg-secondary') }}">
+                                        {{ maintenance.statut_affichage | default(maintenance.statut | capitalize if maintenance.statut else 'N/A') }}
+                                    </span>
+                                </td>
+                                <td>{{ maintenance.prenom ~ ' ' ~ maintenance.nom_utilisateur if maintenance.prenom and maintenance.nom_utilisateur else maintenance.nom_utilisateur | default('Système', true) }}</td>
+                                <td class="text-center action-buttons">
+                                    <a href="{{ url_for('maintenance_details', maintenance_id=maintenance.id) }}" class="btn btn-xs btn-outline-info" title="Voir Détails">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    {# Edit/Delete buttons can be added here with permission checks #}
+                                    {% if maintenance.statut not in ['terminee', 'annulee'] and has_permission('supervisor') %}
+                                    <a href="{{ url_for('maintenance_modifier', maintenance_id=maintenance.id) }}" class="btn btn-xs btn-outline-primary" title="Modifier">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center">Aucune maintenance trouvée pour les filtres sélectionnés.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination and pagination.total > 0 %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('maintenance_liste', page=pagination.prev_num, **filtres) }}" aria-label="Précédent">&laquo;</a>
+            </li>
+            {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    <li class="page-item {% if pagination.page == page_num %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('maintenance_liste', page=page_num, **filtres) }}">{{ page_num }}</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+            {% endfor %}
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('maintenance_liste', page=pagination.next_num, **filtres) }}" aria-label="Suivant">&raquo;</a>
+            </li>
+        </ul>
+        <p class="text-center text-muted">
+            Affichage de {{ pagination.offset + 1 }}-{{ pagination.offset + pagination.items | length }} sur {{ pagination.total }} maintenances.
+        </p>
+    </nav>
+    {% endif %}
+
 </div>
+{% endblock %}
+
+{% block custom_js %}
+<script src="{{ url_for('static', filename='js/flatpickr.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/flatpickr.fr.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr(".flatpickr", {
+            dateFormat: "Y-m-d",
+            locale: "fr",
+            allowInput: true
+        });
+    });
+</script>
 {% endblock %}

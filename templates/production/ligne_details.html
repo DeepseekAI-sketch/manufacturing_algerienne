@@ -1,21 +1,295 @@
 {% extends "layout.html" %}
 
-{% block title %}Détails de la Ligne de Production{% endblock %}
+{% block title %}Détails de la Ligne: {{ ligne.nom if ligne else 'N/A' }}{% endblock %}
+
+{% block custom_css %}
+<style>
+    .card-header h5 {
+        font-size: 1.25rem;
+        font-weight: bold;
+    }
+    .table th {
+        white-space: nowrap;
+    }
+    .nav-tabs .nav-link.active {
+        font-weight: bold;
+    }
+    .stat-card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #e3e6f0;
+        border-radius: .35rem;
+        background-color: #fff;
+        text-align: center;
+    }
+    .stat-card .stat-value {
+        font-size: 1.75rem;
+        font-weight: bold;
+        display: block;
+        color: #4e73df;
+    }
+    .stat-card .stat-label {
+        font-size: 0.9rem;
+        color: #858796;
+    }
+    .graph-container img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #dee2e6;
+        border-radius: .25rem;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Détails de la Ligne de Production</h3>
+<div class="container-fluid mt-4">
+    {% if ligne %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-industry me-2"></i>Détails de la Ligne: {{ ligne.nom }}</h1>
+        <div>
+            {% if has_permission('supervisor') %}
+            <a href="{{ url_for('parametres_ligne_production_modifier', ligne_id=ligne.id) }}" class="btn btn-outline-primary btn-sm me-2">
+                <i class="fas fa-edit me-1"></i> Modifier la Ligne
+            </a>
+            {% endif %}
+            <a href="{{ url_for('production_planning', ligne_id=ligne.id) }}" class="btn btn-info btn-sm">
+                <i class="fas fa-calendar-alt me-1"></i> Voir Planning Complet
+            </a>
+        </div>
+    </div>
+
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                <div class="card-body">
-                    <!-- Informations détaillées sur une ligne de production -->
-                    <p>Détails spécifiques d'une ligne de production...</p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Primary Information -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Informations Générales</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Nom:</strong> {{ ligne.nom }}</p>
+                    <p><strong>Description:</strong> {{ ligne.description | default('N/A', true) | nl2br }}</p>
+                    <p><strong>Capacité:</strong> {{ ligne.capacite | default('N/A', true) }} unités/heure</p>
+                    <p><strong>Statut:</strong> 
+                        <span class="badge 
+                            {% if ligne.status == 'disponible' %}bg-success
+                            {% elif ligne.status == 'occupee' %}bg-info
+                            {% elif ligne.status == 'maintenance' %}bg-warning text-dark
+                            {% elif ligne.status == 'arretee' %}bg-danger
+                            {% else %}bg-secondary
+                            {% endif %}">
+                            {{ ligne.status_display | default(ligne.status | capitalize if ligne.status else 'Inconnu') }}
+                        </span>
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Emplacement:</strong> {{ ligne.emplacement | default('N/A', true) }}</p>
+                    <p><strong>Date d'installation:</strong> {{ ligne.date_installation | format_date if ligne.date_installation else 'N/A' }}</p>
+                    <p><strong>Responsable:</strong> {{ ligne.responsable_nom | default('N/A', true) }}</p>
+                    <p><strong>Créé/Modifié par:</strong> {{ ligne.prenom ~ ' ' ~ ligne.nom_utilisateur if ligne.prenom and ligne.nom_utilisateur else ligne.nom_utilisateur | default('Système', true) }}</p>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Monthly Production Graph -->
+    {% if ligne.graphique %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Production Mensuelle (30 derniers jours)</h5>
+        </div>
+        <div class="card-body text-center graph-container">
+            <img src="data:image/png;base64,{{ ligne.graphique }}" alt="Graphique de production mensuelle">
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabs for Additional Details -->
+    <ul class="nav nav-tabs mb-3" id="ligneDetailsTab" role="tablist">
+        <li class="nav-item" role="presentation"><button class="nav-link active" id="recent-prod-tab" data-bs-toggle="tab" data-bs-target="#recent-prod" type="button" role="tab">Productions Récentes</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" id="upcoming-plan-tab" data-bs-toggle="tab" data-bs-target="#upcoming-plan" type="button" role="tab">Plannings à Venir</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" id="equipments-tab" data-bs-toggle="tab" data-bs-target="#equipments" type="button" role="tab">Équipements Associés</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" id="recent-maint-tab" data-bs-toggle="tab" data-bs-target="#recent-maint" type="button" role="tab">Maintenances Récentes</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" id="prod-stats-tab" data-bs-toggle="tab" data-bs-target="#prod-stats" type="button" role="tab">Statistiques</button></li>
+    </ul>
+
+    <div class="tab-content" id="ligneDetailsTabContent">
+        <!-- Productions Récentes -->
+        <div class="tab-pane fade show active" id="recent-prod" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    {% if productions %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-hover">
+                            <thead><tr><th>Produit</th><th>Réf.</th><th class="text-end">Qté Produite</th><th class="text-end">Temps (h)</th><th>Lot</th><th>Date</th><th>Utilisateur</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {% for p in productions %}
+                                <tr>
+                                    <td>{{ p.produit_nom }}</td>
+                                    <td>{{ p.reference }}</td>
+                                    <td class="text-end">{{ p.quantite_produite | round(2) }}</td>
+                                    <td class="text-end">{{ (p.temps_production / 60) | round(2) if p.temps_production is not none else 'N/A' }}</td>
+                                    <td>{{ p.numero_lot | default('N/A', true) }}</td>
+                                    <td>{{ p.date_creation | format_datetime if p.date_creation else 'N/A' }}</td>
+                                    <td>{{ p.prenom_utilisateur ~ ' ' ~ p.nom_utilisateur if p.prenom_utilisateur and p.nom_utilisateur else p.nom_utilisateur | default('Système', true) }}</td>
+                                    <td><a href="{{ url_for('production_details', production_id=p.id) }}" class="btn btn-xs btn-outline-info"><i class="fas fa-eye"></i></a></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}<p class="text-center text-muted">Aucune production récente pour cette ligne.</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Plannings à Venir -->
+        <div class="tab-pane fade" id="upcoming-plan" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    {% if plannings %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-hover">
+                            <thead><tr><th>Produit</th><th>Réf.</th><th>Date Prod.</th><th class="text-center">Début</th><th class="text-center">Fin</th><th class="text-end">Qté Prévue</th><th class="text-center">Statut</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {% for plan in plannings %}
+                                <tr>
+                                    <td>{{ plan.produit_nom }}</td>
+                                    <td>{{ plan.reference }}</td>
+                                    <td>{{ plan.date_production | format_date if plan.date_production else 'N/A' }}</td>
+                                    <td class="text-center">{{ plan.heure_debut | format_time if plan.heure_debut else 'N/A' }}</td>
+                                    <td class="text-center">{{ plan.heure_fin | format_time if plan.heure_fin else 'N/A' }}</td>
+                                    <td class="text-end">{{ plan.quantite_prevue | round(2) }}</td>
+                                    <td class="text-center"><span class="badge {{ plan.classe_statut | default('bg-secondary') }}">{{ plan.statut_affichage | default(plan.statut | capitalize if plan.statut else 'N/A') }}</span></td>
+                                    <td>
+                                        {% if plan.statut not in ['termine', 'annule'] and has_permission('supervisor') %}
+                                        <a href="{{ url_for('production_planning_modifier', planning_id=plan.id) }}" class="btn btn-xs btn-outline-primary"><i class="fas fa-edit"></i></a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}<p class="text-center text-muted">Aucune planification à venir pour cette ligne.</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Équipements Associés -->
+        <div class="tab-pane fade" id="equipments" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    {% if equipements %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-hover">
+                            <thead><tr><th>Nom</th><th>Référence</th><th>Type</th><th>Statut</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {% for equip in equipements %}
+                                <tr>
+                                    <td>{{ equip.nom }}</td>
+                                    <td>{{ equip.reference | default('N/A', true) }}</td>
+                                    <td>{{ equip.type_equipement_nom | default('N/A', true) }}</td>
+                                    <td><span class="badge {{ equip.classe_statut | default('bg-secondary') }}">{{ equip.statut_equipement | capitalize if equip.statut_equipement else 'N/A' }}</span></td>
+                                    <td><a href="{{ url_for('maintenance_equipement_details', equipement_id=equip.id) }}" class="btn btn-xs btn-outline-info"><i class="fas fa-eye"></i></a></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}<p class="text-center text-muted">Aucun équipement associé à cette ligne.</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Maintenances Récentes -->
+        <div class="tab-pane fade" id="recent-maint" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    {% if maintenances %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-hover">
+                            <thead><tr><th>Équipement</th><th>Type</th><th>Date Programmée</th><th>Statut</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                {% for maint in maintenances %}
+                                <tr>
+                                    <td>{{ maint.equipement_nom }}</td>
+                                    <td>{{ maint.type_maintenance }}</td>
+                                    <td>{{ maint.date_programmee | format_datetime if maint.date_programmee else 'N/A' }}</td>
+                                    <td><span class="badge {{ maint.classe_statut | default('bg-secondary') }}">{{ maint.statut | capitalize if maint.statut else 'N/A' }}</span></td>
+                                    <td><a href="{{ url_for('maintenance_details', maintenance_id=maint.id) }}" class="btn btn-xs btn-outline-info"><i class="fas fa-eye"></i></a></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}<p class="text-center text-muted">Aucune maintenance récente pour les équipements de cette ligne.</p>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistiques de Production -->
+        <div class="tab-pane fade" id="prod-stats" role="tabpanel">
+            <div class="card shadow-sm">
+                 <div class="card-header bg-light"><h5 class="mb-0">Statistiques Globales de la Ligne</h5></div>
+                <div class="card-body">
+                    {% if stats_global %}
+                    <div class="row">
+                        <div class="col-md-3 col-sm-6 mb-3"><div class="stat-card"><span class="stat-value">{{ stats_global.total_produit | round(0) | default(0) }}</span><span class="stat-label">Total Unités Produites</span></div></div>
+                        <div class="col-md-3 col-sm-6 mb-3"><div class="stat-card"><span class="stat-value">{{ stats_global.moyenne_produit_par_jour | round(2) | default(0) }}</span><span class="stat-label">Moy. Unités / Jour</span></div></div>
+                        <div class="col-md-3 col-sm-6 mb-3"><div class="stat-card"><span class="stat-value">{{ (stats_global.temps_moyen_production_minutes | default(0) / 60) | round(2) }} h</span><span class="stat-label">Temps Moyen Prod. / Lot</span></div></div>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="stat-card">
+                                <span class="stat-label">Dernière Production:</span>
+                                <span class="stat-value fs-5">{{ stats_global.date_derniere_production | format_date if stats_global.date_derniere_production else 'Jamais' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}<p class="text-center text-muted">Statistiques de production non disponibles pour cette ligne.</p>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-danger text-center" role="alert">
+        Les détails de cette ligne de production n'ont pas pu être chargés.
+        <a href="{{ url_for('production_lignes') }}" class="alert-link">Retour à la liste des lignes</a>.
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block custom_js %}
+<script>
+    // Optional: Activate tab from URL hash
+    document.addEventListener('DOMContentLoaded', function() {
+        var hash = window.location.hash;
+        if (hash) {
+            var triggerEl = document.querySelector('#ligneDetailsTab button[data-bs-target="' + hash + '"]');
+            if (triggerEl) {
+                var tab = new bootstrap.Tab(triggerEl);
+                tab.show();
+            }
+        }
+        // Update URL hash when tab changes
+        var tabElms = document.querySelectorAll('#ligneDetailsTab button[data-bs-toggle="tab"]');
+        tabElms.forEach(function(tabElm) {
+            tabElm.addEventListener('shown.bs.tab', function (event) {
+                history.pushState(null, null, event.target.dataset.bsTarget);
+            });
+        });
+    });
+</script>
 {% endblock %}

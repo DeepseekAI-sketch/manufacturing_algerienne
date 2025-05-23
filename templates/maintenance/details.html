@@ -1,21 +1,249 @@
 {% extends "layout.html" %}
 
-{% block title %}Détails de l'Intervention{% endblock %}
+{% block title %}Détails Maintenance: {{ maintenance.equipement_nom if maintenance else 'N/A' }} - {{ maintenance.date_programmee | format_date if maintenance and maintenance.date_programmee else 'N/A' }}{% endblock %}
+
+{% block custom_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr.min.css') }}">
+<style>
+    .card-header h5, .card-header h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-bottom: 0;
+    }
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .badge { font-size: 0.9em; }
+    .form-label { font-weight: 500; }
+    .action-buttons .btn, .action-buttons form {
+        margin-right: 5px;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Détails de l'Intervention de Maintenance</h3>
+<div class="container-fluid mt-4">
+    {% if maintenance %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-wrench me-2"></i>Détails de la Maintenance</h1>
+        <div class="action-buttons">
+            {% if maintenance.statut not in ['terminee', 'annulee'] or has_permission('supervisor') %}
+                <a href="{{ url_for('maintenance_modifier', maintenance_id=maintenance.id) }}" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-edit me-1"></i> Modifier la Maintenance
+                </a>
+            {% endif %}
+            {% if maintenance.statut not in ['terminee', 'annulee'] and has_permission('supervisor') %}
+                <form method="POST" action="{{ url_for('maintenance_annuler', maintenance_id=maintenance.id) }}" onsubmit="return confirm('Êtes-vous sûr de vouloir annuler cette maintenance ?');">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-times-circle me-1"></i> Annuler la Maintenance
+                    </button>
+                </form>
+            {% endif %}
+            <a href="{{ url_for('maintenance_liste') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> Retour à la Liste
+            </a>
+        </div>
+    </div>
+
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                <div class="card-body">
-                    <!-- Informations détaillées sur une intervention -->
-                    <p>Détails spécifiques d'une intervention...</p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Primary Maintenance Information -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5>Informations Générales</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Équipement:</strong> 
+                        <a href="{{ url_for('maintenance_equipement_details', equipement_id=maintenance.equipement_id) }}">
+                            {{ maintenance.equipement_nom }}
+                        </a>
+                    </p>
+                    <p><strong>Numéro de Série:</strong> {{ maintenance.numero_serie | default('N/A', true) }}</p>
+                    <p><strong>Fabricant:</strong> {{ maintenance.fabricant | default('N/A', true) }}</p>
+                    <p><strong>Modèle:</strong> {{ maintenance.modele | default('N/A', true) }}</p>
+                    <p><strong>Ligne de Production:</strong> 
+                        {% if maintenance.ligne_id %}
+                        <a href="{{ url_for('production_ligne_details', ligne_id=maintenance.ligne_id) }}">
+                            {{ maintenance.ligne_nom | default('N/A', true) }}
+                        </a>
+                        {% else %}
+                        {{ maintenance.ligne_nom | default('N/A', true) }}
+                        {% endif %}
+                    </p>
+                    <p><strong>Type de Maintenance:</strong> {{ maintenance.type_nom }}</p>
+                    <p><strong>Description du Type:</strong> {{ maintenance.type_description | default('N/A', true) | nl2br }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Date Programmée:</strong> {{ maintenance.date_programmee | format_datetime if maintenance.date_programmee else 'N/A' }}</p>
+                    <p><strong>Durée Estimée:</strong> {{ maintenance.duree_estimee | round(1) if maintenance.duree_estimee is not none else 'N/A' }} heures</p>
+                    <p><strong>Statut:</strong> 
+                        <span class="badge {{ maintenance.classe_statut | default('bg-secondary') }}">
+                            {{ maintenance.statut_affichage | default(maintenance.statut | capitalize if maintenance.statut else 'N/A') }}
+                        </span>
+                    </p>
+                    <p><strong>Priorité:</strong> 
+                        <span class="badge {{ maintenance.classe_priorite | default('bg-secondary') }}">
+                            {{ maintenance.priorite | capitalize if maintenance.priorite else 'N/A' }}
+                        </span>
+                    </p>
+                    <p><strong>Impact sur la Production:</strong> {{ maintenance.impact_production | capitalize if maintenance.impact_production else 'Non' }}</p>
+                    <p><strong>Demandeur:</strong> {{ maintenance.prenom ~ ' ' ~ maintenance.nom_utilisateur if maintenance.prenom and maintenance.nom_utilisateur else maintenance.nom_utilisateur | default('Système', true) }}</p>
+                    <p><strong>Date de Création:</strong> {{ maintenance.date_creation | format_datetime if maintenance.date_creation else 'N/A' }}</p>
+                    {% if maintenance.date_fin %}
+                    <p><strong>Date de Fin Réelle:</strong> {{ maintenance.date_fin | format_datetime }}</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Historique des Interventions -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5><i class="fas fa-history me-2"></i>Historique des Interventions pour cette Maintenance</h5>
+        </div>
+        <div class="card-body">
+            {% if historique %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th class="text-end">Durée Réelle (h)</th>
+                            <th>Description</th>
+                            <th>Pièces Remplacées</th>
+                            <th>Rapport</th>
+                            <th>Intervenant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for intervention in historique %}
+                        <tr>
+                            <td>{{ intervention.date_intervention | format_datetime if intervention.date_intervention else 'N/A' }}</td>
+                            <td class="text-end">{{ intervention.duree_reelle | round(1) if intervention.duree_reelle is not none else 'N/A' }}</td>
+                            <td>{{ intervention.description | nl2br | default('N/A', true) }}</td>
+                            <td>{{ intervention.pieces_remplacees | nl2br | default('Aucune', true) }}</td>
+                            <td>
+                                {% if intervention.rapport_url %}
+                                <a href="{{ url_for('static', filename=intervention.rapport_url) }}" target="_blank" class="btn btn-xs btn-outline-info">
+                                    <i class="fas fa-file-alt me-1"></i>Voir
+                                </a>
+                                {% else %}
+                                N/A
+                                {% endif %}
+                            </td>
+                            <td>{{ intervention.prenom ~ ' ' ~ intervention.nom_utilisateur if intervention.prenom and intervention.nom_utilisateur else intervention.nom_utilisateur | default('Système', true) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-center text-muted">Aucune intervention enregistrée pour cette maintenance.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Ajouter une Intervention Form -->
+    {% if maintenance.statut != 'annulee' and (maintenance.statut != 'terminee' or has_permission('supervisor')) %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-info text-white">
+            <h4><i class="fas fa-plus-square me-2"></i>Ajouter une Intervention / Mettre à Jour</h4>
+        </div>
+        <div class="card-body p-4">
+            <form method="POST" action="{{ url_for('maintenance_details', maintenance_id=maintenance.id) }}" enctype="multipart/form-data">
+                {{ intervention_form.hidden_tag() if intervention_form else '' }}
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="date_intervention" class="form-label">Date de l'Intervention <span class="text-danger">*</span></label>
+                        {{ intervention_form.date_intervention(class="form-control flatpickr-datetime", required=True, placeholder="YYYY-MM-DD HH:MM") if intervention_form else '<input type="text" class="form-control flatpickr-datetime" id="date_intervention" name="date_intervention" required placeholder="YYYY-MM-DD HH:MM">' }}
+                        {% if intervention_form and intervention_form.date_intervention.errors %}<div class="invalid-feedback d-block">{% for error in intervention_form.date_intervention.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="duree_reelle" class="form-label">Durée Réelle (heures) <span class="text-danger">*</span></label>
+                        {{ intervention_form.duree_reelle(class="form-control", type="number", step="0.1", min="0", required=True) if intervention_form else '<input type="number" class="form-control" id="duree_reelle" name="duree_reelle" step="0.1" min="0" required>' }}
+                        {% if intervention_form and intervention_form.duree_reelle.errors %}<div class="invalid-feedback d-block">{% for error in intervention_form.duree_reelle.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="description_intervention" class="form-label">Description de l'Intervention <span class="text-danger">*</span></label>
+                    {{ intervention_form.description(class="form-control", rows="3", required=True) if intervention_form else '<textarea class="form-control" id="description_intervention" name="description" rows="3" required></textarea>' }}
+                    {% if intervention_form and intervention_form.description.errors %}<div class="invalid-feedback d-block">{% for error in intervention_form.description.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="pieces_remplacees" class="form-label">Pièces Remplacées (si applicable)</label>
+                    {{ intervention_form.pieces_remplacees(class="form-control", rows="2") if intervention_form else '<textarea class="form-control" id="pieces_remplacees" name="pieces_remplacees" rows="2"></textarea>' }}
+                    {% if intervention_form and intervention_form.pieces_remplacees.errors %}<div class="invalid-feedback d-block">{% for error in intervention_form.pieces_remplacees.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="statut_maintenance" class="form-label">Mettre à Jour le Statut de la Maintenance <span class="text-danger">*</span></label>
+                        {% if intervention_form and intervention_form.statut %}
+                            {{ intervention_form.statut(class="form-select", required=True) }}
+                        {% else %}
+                        <select class="form-select" id="statut_maintenance" name="statut" required>
+                            <option value="en_cours" {% if maintenance.statut == 'en_cours' or maintenance.statut == 'planifie' %}selected{% endif %}>En cours</option>
+                            <option value="terminee" {% if maintenance.statut == 'terminee' %}selected{% endif %}>Terminée</option>
+                        </select>
+                        {% endif %}
+                        {% if intervention_form and intervention_form.statut.errors %}<div class="invalid-feedback d-block">{% for error in intervention_form.statut.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="rapport" class="form-label">Rapport d'Intervention (PDF, Image)</label>
+                        {{ intervention_form.rapport(class="form-control", accept=".pdf,.jpg,.jpeg,.png") if intervention_form else '<input type="file" class="form-control" id="rapport" name="rapport" accept=".pdf,.jpg,.jpeg,.png">' }}
+                        {% if intervention_form and intervention_form.rapport.errors %}<div class="invalid-feedback d-block">{% for error in intervention_form.rapport.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                    </div>
+                </div>
+                
+                <div class="text-end">
+                    {% if intervention_form and intervention_form.submit %}
+                        {{ intervention_form.submit(class="btn btn-success") }}
+                    {% else %}
+                        <button type="submit" class="btn btn-success"><i class="fas fa-plus me-1"></i>Ajouter Intervention</button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="alert alert-danger text-center" role="alert">
+        Les détails de cette maintenance n'ont pas pu être chargés.
+        <a href="{{ url_for('maintenance_liste') }}" class="alert-link">Retour à la liste des maintenances</a>.
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block custom_js %}
+<script src="{{ url_for('static', filename='js/flatpickr.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/flatpickr.fr.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr(".flatpickr-datetime", {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            locale: "fr",
+            allowInput: true
+        });
+    });
+</script>
 {% endblock %}

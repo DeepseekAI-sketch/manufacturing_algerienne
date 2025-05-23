@@ -1,0 +1,115 @@
+{% extends "layout.html" %}
+
+{% block title %}Modifier Composant: {{ composant.nom if composant else 'N/A' }} dans {{ produit.nom if produit else 'N/A' }}{% endblock %}
+
+{% block custom_css %}
+<style>
+    .form-label {
+        font-weight: 500;
+    }
+    .card-header h4, .card-header h5 {
+        font-size: 1.35rem;
+        margin-bottom: 0;
+    }
+    .product-info-card {
+        background-color: #f8f9fa; /* Light background for info */
+    }
+    .component-info-card {
+        background-color: #e9f5ff; /* Light blue for component info */
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    {% if produit and composant %}
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-7">
+            <!-- Parent Product Information Card -->
+            <div class="card shadow-sm mb-3 product-info-card">
+                <div class="card-header">
+                    <h5 class="text-primary">Produit Parent</h5>
+                </div>
+                <div class="card-body py-2">
+                    <p class="mb-1"><strong>Nom:</strong> {{ produit.nom }}</p>
+                    <p class="mb-0"><strong>Référence:</strong> {{ produit.reference }}</p>
+                </div>
+            </div>
+
+            <!-- Component Information Card -->
+            <div class="card shadow-sm mb-4 component-info-card">
+                <div class="card-header">
+                    <h5 class="text-info">Composant à Modifier</h5>
+                </div>
+                <div class="card-body py-2">
+                    <p class="mb-1"><strong>Nom:</strong> {{ composant.nom }}</p>
+                    <p class="mb-1"><strong>Référence:</strong> {{ composant.reference }}</p>
+                    <p class="mb-0"><strong>Type:</strong> {{ composant.type_produit_display | default(composant.type_produit | capitalize if composant.type_produit else 'N/A') }}</p>
+                </div>
+            </div>
+
+            <!-- Form Card -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4><i class="fas fa-edit me-2"></i>Modifier le Composant dans la Nomenclature</h4>
+                </div>
+                <div class="card-body p-4">
+                    {# Flashed messages display area #}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('nomenclature_modifier_composant', produit_id=produit.id, composant_id=composant.composant_id) }}">
+                        {{ form.hidden_tag() if form else '' }} {# For CSRF token if using Flask-WTF #}
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="quantite" class="form-label">Quantité Nécessaire <span class="text-danger">*</span></label>
+                                {{ form.quantite(class="form-control", type="number", step="0.01", min="0.000001", value=composant.quantite, required=True) if form else '<input type="number" class="form-control" id="quantite" name="quantite" step="0.01" min="0.000001" value="' ~ (composant.quantite if composant.quantite is not none else '') ~ '" required>' }}
+                                {% if form and form.quantite.errors %}<div class="invalid-feedback d-block">{% for error in form.quantite.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="unite_mesure" class="form-label">Unité de Mesure <span class="text-danger">*</span></label>
+                                {{ form.unite_mesure(class="form-control", value=composant.unite_mesure, required=True) if form else '<input type="text" class="form-control" id="unite_mesure" name="unite_mesure" value="' ~ (composant.unite_mesure if composant.unite_mesure is not none else '') ~ '" required>' }}
+                                {% if form and form.unite_mesure.errors %}<div class="invalid-feedback d-block">{% for error in form.unite_mesure.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('nomenclature_produit', produit_id=produit.id) }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Retour à la Nomenclature
+                            </a>
+                            {% if form and form.submit %}
+                                {{ form.submit(class="btn btn-primary btn-lg") }}
+                            {% else %}
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-save me-2"></i>Enregistrer Modifications
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-danger text-center" role="alert">
+        Produit parent ou composant non trouvé. Impossible de modifier le composant.
+        <a href="{{ url_for('produits_liste') }}" class="alert-link">Retour à la liste des produits</a>.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block custom_js %}
+{# Any specific JS for this page could go here #}
+{% endblock %}

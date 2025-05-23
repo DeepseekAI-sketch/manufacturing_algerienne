@@ -1,21 +1,170 @@
 {% extends "layout.html" %}
 
-{% block title %}Ajouter Contrôle Qualité{% endblock %}
+{% block title %}Ajouter un Contrôle Qualité{% endblock %}
+
+{% block custom_css %}
+<style>
+    .form-label {
+        font-weight: 500;
+    }
+    .card-header h4 {
+        font-size: 1.5rem;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container mt-4">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="text-center">Nouveau Contrôle Qualité</h3>
+        <div class="col-lg-9 col-xl-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Ajouter un Contrôle Qualité</h4>
                 </div>
-                <div class="card-body">
-                    <!-- Formulaire pour ajouter un contrôle qualité -->
-                    <p>Formulaire d'ajout de contrôle qualité...</p>
+                <div class="card-body p-4">
+                    {# Flashed messages display area #}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('qualite_ajouter') }}" enctype="multipart/form-data">
+                        {{ form.hidden_tag() if form else '' }} {# For CSRF token if using Flask-WTF #}
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="produit_id" class="form-label">Produit Concerné <span class="text-danger">*</span></label>
+                                {% if form and form.produit_id %}
+                                    {{ form.produit_id(class="form-select", required=True) }}
+                                {% elif produits %}
+                                    <select class="form-select" id="produit_id" name="produit_id" required>
+                                        <option value="" disabled selected>Choisir un produit...</option>
+                                        {% for produit in produits %}
+                                        <option value="{{ produit.id }}">{{ produit.nom }} ({{ produit.reference }})</option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                    <p class="text-danger">Liste des produits non disponible.</p>
+                                {% endif %}
+                                {% if form and form.produit_id and form.produit_id.errors %}<div class="invalid-feedback d-block">{% for error in form.produit_id.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="lot_id" class="form-label">Lot de Production (si applicable)</label>
+                                {% if form and form.lot_id %}
+                                    {{ form.lot_id(class="form-select") }}
+                                {% elif lots %}
+                                    <select class="form-select" id="lot_id" name="lot_id">
+                                        <option value="">Aucun lot spécifique / Entrée manuelle</option>
+                                        {% for lot in lots %} {# Assuming 'lots' are production runs #}
+                                        <option value="{{ lot.id }}">{{ lot.numero_lot }} ({{ lot.produit_nom }})</option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                    <p class="text-muted">Aucun lot de production disponible pour sélection.</p>
+                                {% endif %}
+                                {% if form and form.lot_id and form.lot_id.errors %}<div class="invalid-feedback d-block">{% for error in form.lot_id.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="numero_lot" class="form-label">Numéro de Lot/Batch (manuel)</label>
+                                {{ form.numero_lot(class="form-control", placeholder="Si non lié à une production") if form else '<input type="text" class="form-control" id="numero_lot" name="numero_lot" placeholder="Si non lié à une production">' }}
+                                {% if form and form.numero_lot.errors %}<div class="invalid-feedback d-block">{% for error in form.numero_lot.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="numero_serie" class="form-label">Numéro de Série (si applicable)</label>
+                                {{ form.numero_serie(class="form-control", placeholder="Pour produits unitaires") if form else '<input type="text" class="form-control" id="numero_serie" name="numero_serie" placeholder="Pour produits unitaires">' }}
+                                {% if form and form.numero_serie.errors %}<div class="invalid-feedback d-block">{% for error in form.numero_serie.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="type_controle" class="form-label">Type de Contrôle <span class="text-danger">*</span></label>
+                            {{ form.type_controle(class="form-control", required=True, placeholder="Ex: Réception Matière, En Cours, Produit Fini") if form else '<input type="text" class="form-control" id="type_controle" name="type_controle" required placeholder="Ex: Réception Matière, En Cours, Produit Fini">' }}
+                            {% if form and form.type_controle.errors %}<div class="invalid-feedback d-block">{% for error in form.type_controle.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="resultat" class="form-label">Résultat <span class="text-danger">*</span></label>
+                            {% if form and form.resultat %}
+                                {{ form.resultat(class="form-select", required=True) }}
+                            {% else %}
+                            <select class="form-select" id="resultat" name="resultat" required>
+                                <option value="" disabled selected>Choisir un résultat...</option>
+                                <option value="Conforme">Conforme</option>
+                                <option value="Non Conforme">Non Conforme</option>
+                                <option value="En Attente">En Attente</option>
+                            </select>
+                            {% endif %}
+                            {% if form and form.resultat.errors %}<div class="invalid-feedback d-block">{% for error in form.resultat.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="commentaire" class="form-label">Commentaire</label>
+                            {{ form.commentaire(class="form-control", rows="3", placeholder="Optionnel: observations, actions correctives...") if form else '<textarea class="form-control" id="commentaire" name="commentaire" rows="3" placeholder="Optionnel: observations, actions correctives..."></textarea>' }}
+                            {% if form and form.commentaire.errors %}<div class="invalid-feedback d-block">{% for error in form.commentaire.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="mesures" class="form-label">Mesures (JSON)</label>
+                            {{ form.mesures(class="form-control", rows="3", placeholder='Optionnel: Ex: {"longueur": 10.2, "largeur": 5.1}') if form else '<textarea class="form-control" id="mesures" name="mesures" rows="3" placeholder=\'Optionnel: Ex: {"longueur": 10.2, "largeur": 5.1}\'></textarea>' }}
+                            <small class="form-text text-muted">Si des mesures sont enregistrées, elles doivent être au format JSON valide.</small>
+                            {% if form and form.mesures.errors %}<div class="invalid-feedback d-block">{% for error in form.mesures.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="rapport" class="form-label">Rapport de Contrôle (PDF, Image)</label>
+                            {{ form.rapport(class="form-control", accept=".pdf,.jpg,.jpeg,.png") if form else '<input type="file" class="form-control" id="rapport" name="rapport" accept=".pdf,.jpg,.jpeg,.png">' }}
+                            {% if form and form.rapport.errors %}<div class="invalid-feedback d-block">{% for error in form.rapport.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('qualite_liste') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Retour à la Liste
+                            </a>
+                            {% if form and form.submit %}
+                                {{ form.submit(class="btn btn-primary btn-lg") }}
+                            {% else %}
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-save me-2"></i>Enregistrer Contrôle
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block custom_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const lotIdSelect = document.getElementById('lot_id');
+    const numeroLotInput = document.getElementById('numero_lot');
+
+    if (lotIdSelect && numeroLotInput) {
+        function toggleNumeroLotInput() {
+            // Disable numero_lot input if a lot_id is selected
+            numeroLotInput.disabled = !!lotIdSelect.value;
+            if (lotIdSelect.value) {
+                numeroLotInput.value = ''; // Clear manual input if lot_id selected
+            }
+        }
+        lotIdSelect.addEventListener('change', toggleNumeroLotInput);
+        // Initial state
+        toggleNumeroLotInput();
+    }
+});
+</script>
 {% endblock %}

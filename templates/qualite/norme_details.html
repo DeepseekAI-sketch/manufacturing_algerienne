@@ -1,21 +1,229 @@
 {% extends "layout.html" %}
 
-{% block title %}Détails de la Norme de Qualité{% endblock %}
+{% block title %}Détails Norme: {{ norme.code if norme else 'N/A' }} - {{ norme.nom if norme else 'N/A' }}{% endblock %}
+
+{% block custom_css %}
+<style>
+    .card-header h5, .card-header h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-bottom: 0;
+    }
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .nav-tabs .nav-link.active {
+        font-weight: bold;
+    }
+    .action-buttons .btn {
+        margin-right: 5px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Détails de la Norme de Qualité</h3>
+<div class="container-fluid mt-4">
+    {% if norme %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-scroll me-2"></i>Détails de la Norme: {{ norme.nom }}</h1>
+        <div class="action-buttons">
+            {% if has_permission('supervisor') %}
+            {# Assuming a route like 'parametres_norme_modifier' might exist #}
+            <a href="{{ url_for('parametres_norme_modifier', norme_id=norme.id) if norme else '#' }}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-edit me-1"></i> Modifier la Norme
+            </a>
+            {# Assuming a route for associating products, e.g., 'qualite_norme_associer_produits' #}
+            <a href="{{ url_for('qualite_norme_associer_produits', norme_id=norme.id) if norme else '#' }}" class="btn btn-outline-success btn-sm">
+                <i class="fas fa-link me-1"></i> Associer des Produits
+            </a>
+            {% endif %}
+            <a href="{{ url_for('qualite_normes') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> Retour à la Liste des Normes
+            </a>
+        </div>
+    </div>
+
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                <div class="card-body">
-                    <!-- Informations détaillées sur une norme de qualité -->
-                    <p>Détails spécifiques d'une norme de qualité...</p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Primary Norm Information -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5>Informations Générales sur la Norme</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Code:</strong> {{ norme.code }}</p>
+                    <p><strong>Nom:</strong> {{ norme.nom }}</p>
+                    <p><strong>Description:</strong> {{ norme.description | nl2br | default('N/A', true) }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Catégorie:</strong> {{ norme.categorie | default('N/A', true) }}</p>
+                    <p><strong>Organisme:</strong> {{ norme.organisme | default('N/A', true) }}</p>
+                    <p><strong>Date de Publication:</strong> {{ norme.date_publication | format_date if norme.date_publication else 'N/A' }}</p>
+                    {% if norme.document_url %}
+                    <p><strong>Document:</strong> 
+                        <a href="{{ norme.document_url }}" target="_blank" class="btn btn-sm btn-outline-info">
+                            <i class="fas fa-file-pdf me-1"></i>Voir le Document
+                        </a>
+                    </p>
+                    {% endif %}
+                    <p><strong>Créé par:</strong> {{ norme.prenom ~ ' ' ~ norme.nom_utilisateur if norme.prenom and norme.nom_utilisateur else norme.nom_utilisateur | default('Système', true) }}</p>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Tabs for Additional Details -->
+    <ul class="nav nav-tabs mb-3" id="normeDetailsTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="specifications-tab" data-bs-toggle="tab" data-bs-target="#specifications" type="button" role="tab" aria-controls="specifications" aria-selected="true">
+                <i class="fas fa-tasks me-1"></i>Spécifications de la Norme
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="assoc-products-tab" data-bs-toggle="tab" data-bs-target="#assoc-products" type="button" role="tab" aria-controls="assoc-products" aria-selected="false">
+                <i class="fas fa-boxes me-1"></i>Produits Associés ({{ produits | length if produits else 0 }})
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="normeDetailsTabContent">
+        <!-- Spécifications de la Norme -->
+        <div class="tab-pane fade show active" id="specifications" role="tabpanel" aria-labelledby="specifications-tab">
+            <div class="card shadow-sm">
+                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Liste des Spécifications</h5>
+                    {% if has_permission('supervisor') %}
+                    <a href="{{ url_for('parametres_specification_ajouter', norme_id=norme.id) if norme else '#' }}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-plus-circle me-1"></i> Ajouter Spécification
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if specifications %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nom de la Spécification</th>
+                                    <th>Description</th>
+                                    <th class="text-end">Valeur Cible</th>
+                                    <th class="text-end">Tolérance Min</th>
+                                    <th class="text-end">Tolérance Max</th>
+                                    <th>Unité</th>
+                                    {% if has_permission('supervisor') %}<th class="text-center">Actions</th>{% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for spec in specifications %}
+                                <tr>
+                                    <td>{{ spec.nom }}</td>
+                                    <td>{{ spec.description | nl2br | default('N/A', true) }}</td>
+                                    <td class="text-end">{{ spec.valeur_cible if spec.valeur_cible is not none else 'N/A' }}</td>
+                                    <td class="text-end">{{ spec.tolerance_min if spec.tolerance_min is not none else 'N/A' }}</td>
+                                    <td class="text-end">{{ spec.tolerance_max if spec.tolerance_max is not none else 'N/A' }}</td>
+                                    <td>{{ spec.unite | default('N/A', true) }}</td>
+                                    {% if has_permission('supervisor') %}
+                                    <td class="text-center">
+                                        <a href="{{ url_for('parametres_specification_modifier', specification_id=spec.id) if spec else '#' }}" class="btn btn-xs btn-outline-primary" title="Modifier">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        {# Add delete button if needed for specifications #}
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-center text-muted">Aucune spécification définie pour cette norme.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Produits Associés -->
+        <div class="tab-pane fade" id="assoc-products" role="tabpanel" aria-labelledby="assoc-products-tab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Produits Conformes à cette Norme</h5>
+                </div>
+                <div class="card-body">
+                    {% if produits %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nom du Produit</th>
+                                    <th>Référence</th>
+                                    <th>Catégorie</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for produit_associe in produits %}
+                                <tr>
+                                    <td>{{ produit_associe.nom }}</td>
+                                    <td>{{ produit_associe.reference }}</td>
+                                    <td>{{ produit_associe.categorie_nom | default('N/A', true) }}</td>
+                                    <td class="text-center">
+                                        <a href="{{ url_for('produit_details', produit_id=produit_associe.id) }}" class="btn btn-xs btn-outline-info" title="Voir Détails Produit">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-center text-muted">Aucun produit n'est actuellement associé à cette norme.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-danger text-center" role="alert">
+        Les détails de cette norme n'ont pas pu être chargés.
+        <a href="{{ url_for('qualite_normes') }}" class="alert-link">Retour à la liste des normes</a>.
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block custom_js %}
+<script>
+    // Optional: Activate tab from URL hash
+    document.addEventListener('DOMContentLoaded', function() {
+        var hash = window.location.hash;
+        if (hash) {
+            var triggerEl = document.querySelector('#normeDetailsTab button[data-bs-target="' + hash + '"]');
+            if (triggerEl) {
+                var tab = new bootstrap.Tab(triggerEl);
+                tab.show();
+            }
+        }
+        // Update URL hash when tab changes
+        var tabElms = document.querySelectorAll('#normeDetailsTab button[data-bs-toggle="tab"]');
+        tabElms.forEach(function(tabElm) {
+            tabElm.addEventListener('shown.bs.tab', function (event) {
+                history.pushState(null, null, event.target.dataset.bsTarget);
+            });
+        });
+    });
+</script>
 {% endblock %}

@@ -1,21 +1,230 @@
 {% extends "layout.html" %}
 
-{% block title %}Transfert de Stock{% endblock %}
+{% block title %}Transfert de Stock entre Entrepôts{% endblock %}
+
+{% block custom_css %}
+<style>
+    .form-label {
+        font-weight: 500;
+    }
+    .card-header h4, .card-header h5 {
+        font-size: 1.35rem;
+        margin-bottom: 0;
+    }
+    #selected-product-info {
+        background-color: #e9ecef;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+    }
+    #available-quantity-info {
+        font-size: 0.9em;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container mt-4">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="text-center">Effectuer un Transfert de Stock</h3>
+        <div class="col-lg-9 col-xl-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4><i class="fas fa-truck-loading me-2"></i>Transfert de Stock entre Entrepôts</h4>
                 </div>
-                <div class="card-body">
-                    <!-- Formulaire pour le transfert de stock entre entrepôts -->
-                    <p>Formulaire de transfert de stock...</p>
+                <div class="card-body p-4">
+                    {# Flashed messages display area #}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <!-- Step 1: Select Product -->
+                    <form method="GET" action="{{ url_for('stock_transfert') }}" id="select-product-form" class="mb-4">
+                        <h5 class="mb-3">Étape 1: Sélectionner le Produit à Transférer</h5>
+                        <div class="row align-items-end">
+                            <div class="col-md-8 mb-3 mb-md-0">
+                                <label for="produit_id_select" class="form-label">Produit</label>
+                                <select class="form-select" id="produit_id_select" name="produit_id">
+                                    <option value="" disabled {% if not selected_produit_id %}selected{% endif %}>Choisir un produit...</option>
+                                    {% for prod in produits %}
+                                    <option value="{{ prod.id }}" {% if selected_produit_id == prod.id|string %}selected{% endif %}>{{ prod.nom }} ({{ prod.reference }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-info w-100"><i class="fas fa-check me-1"></i>Sélectionner Produit</button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
+                    <!-- Step 2: Transfer Details (shown if product is selected) -->
+                    {% if selected_produit_id and stocks_disponibles is not none %}
+                    <div id="transfer-details-section">
+                        <h5 class="mb-3">Étape 2: Détails du Transfert</h5>
+                        
+                        {% if selected_produit %}
+                        <div id="selected-product-info">
+                            <p class="mb-1"><strong>Produit Sélectionné:</strong> {{ selected_produit.nom }} ({{ selected_produit.reference }})</p>
+                            <p class="mb-0"><strong>Unité de mesure:</strong> {{ selected_produit.unite_mesure | default('N/A') }}</p>
+                        </div>
+                        {% endif %}
+
+                        <form method="POST" action="{{ url_for('stock_transfert') }}">
+                            {{ form.hidden_tag() if form else '' }} {# For CSRF token if using Flask-WTF #}
+                            <input type="hidden" name="produit_id" value="{{ selected_produit_id }}">
+
+                            <div class="mb-3">
+                                <label for="entrepot_source_id" class="form-label">Entrepôt Source <span class="text-danger">*</span></label>
+                                {% if form and form.entrepot_source_id %}
+                                    {{ form.entrepot_source_id(class="form-select", required=True) }}
+                                {% elif stocks_disponibles %}
+                                    <select class="form-select" id="entrepot_source_id" name="entrepot_source_id" required>
+                                        <option value="" disabled selected>Choisir un entrepôt source...</option>
+                                        {% for stock in stocks_disponibles %}
+                                        <option value="{{ stock.entrepot_id }}" data-available-quantity="{{ stock.quantite }}" data-unit="{{ stock.unite_mesure | default(selected_produit.unite_mesure if selected_produit else '') }}">
+                                            {{ stock.entrepot_nom }} (Disponible: {{ stock.quantite | round(2) }} {{ stock.unite_mesure | default(selected_produit.unite_mesure if selected_produit else '') }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                    <p class="text-danger">Aucun stock disponible pour ce produit.</p>
+                                {% endif %}
+                                {% if form and form.entrepot_source_id and form.entrepot_source_id.errors %}<div class="invalid-feedback d-block">{% for error in form.entrepot_source_id.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                                <div id="available-quantity-info"></div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="entrepot_destination_id" class="form-label">Entrepôt Destination <span class="text-danger">*</span></label>
+                                {% if form and form.entrepot_destination_id %}
+                                    {{ form.entrepot_destination_id(class="form-select", required=True) }}
+                                {% elif entrepots %}
+                                    <select class="form-select" id="entrepot_destination_id" name="entrepot_destination_id" required>
+                                        <option value="" disabled selected>Choisir un entrepôt destination...</option>
+                                        {% for entrepot in entrepots %}
+                                        <option value="{{ entrepot.id }}">{{ entrepot.nom }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                     <p class="text-danger">Liste des entrepôts de destination non disponible.</p>
+                                {% endif %}
+                                {% if form and form.entrepot_destination_id and form.entrepot_destination_id.errors %}<div class="invalid-feedback d-block">{% for error in form.entrepot_destination_id.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="quantite" class="form-label">Quantité à Transférer <span class="text-danger">*</span></label>
+                                {{ form.quantite(class="form-control", type="number", step="0.01", min="0.01", required=True) if form else '<input type="number" class="form-control" id="quantite" name="quantite" step="0.01" min="0.01" required>' }}
+                                {% if form and form.quantite.errors %}<div class="invalid-feedback d-block">{% for error in form.quantite.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="commentaire" class="form-label">Commentaire</label>
+                                {{ form.commentaire(class="form-control", rows="3", placeholder="Optionnel: ex: Transfert inter-dépôts urgent") if form else '<textarea class="form-control" id="commentaire" name="commentaire" rows="3" placeholder="Optionnel: ex: Transfert inter-dépôts urgent"></textarea>' }}
+                                {% if form and form.commentaire.errors %}<div class="invalid-feedback d-block">{% for error in form.commentaire.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+
+                            <hr class="my-4">
+
+                            <div class="d-flex justify-content-between">
+                                <a href="{{ url_for('stocks_liste') }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>Annuler / Retour
+                                </a>
+                                {% if form and form.submit %}
+                                    {{ form.submit(class="btn btn-success btn-lg") }}
+                                {% else %}
+                                    <button type="submit" class="btn btn-success btn-lg">
+                                        <i class="fas fa-check-circle me-2"></i>Effectuer le Transfert
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </form>
+                    </div>
+                    {% elif selected_produit_id and stocks_disponibles is none %}
+                         <div class="alert alert-warning text-center">
+                            Aucun stock disponible dans les entrepôts pour le produit sélectionné.
+                         </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block custom_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const produitSelectInitial = document.getElementById('produit_id_select');
+    const sourceWarehouseSelect = document.getElementById('entrepot_source_id');
+    const destinationWarehouseSelect = document.getElementById('entrepot_destination_id');
+    const quantityInput = document.getElementById('quantite');
+    const availableQuantityInfo = document.getElementById('available-quantity-info');
+
+    function updateAvailableQuantity() {
+        if (!sourceWarehouseSelect || !availableQuantityInfo) return;
+        const selectedOption = sourceWarehouseSelect.options[sourceWarehouseSelect.selectedIndex];
+        if (selectedOption && selectedOption.value) {
+            const available = selectedOption.dataset.availableQuantity;
+            const unit = selectedOption.dataset.unit || 'unités';
+            availableQuantityInfo.textContent = `Disponible dans cet entrepôt: ${available} ${unit}`;
+            if (quantityInput) {
+                quantityInput.max = available;
+            }
+        } else {
+            availableQuantityInfo.textContent = '';
+            if (quantityInput) {
+                quantityInput.removeAttribute('max');
+            }
+        }
+    }
+
+    function updateDestinationOptions() {
+        if (!sourceWarehouseSelect || !destinationWarehouseSelect) return;
+        const sourceValue = sourceWarehouseSelect.value;
+        let previouslySelectedDestination = destinationWarehouseSelect.value;
+
+        for (let i = 0; i < destinationWarehouseSelect.options.length; i++) {
+            if (destinationWarehouseSelect.options[i].value === sourceValue) {
+                destinationWarehouseSelect.options[i].disabled = true;
+                destinationWarehouseSelect.options[i].style.display = 'none'; // Hide it
+            } else {
+                destinationWarehouseSelect.options[i].disabled = false;
+                destinationWarehouseSelect.options[i].style.display = ''; // Show it
+            }
+        }
+        // If the currently selected destination became disabled, reset it
+        if (destinationWarehouseSelect.value === sourceValue) {
+            destinationWarehouseSelect.value = ""; 
+        } else if (previouslySelectedDestination && destinationWarehouseSelect.querySelector('option[value="' + previouslySelectedDestination + '"]:not([disabled])') ) {
+             destinationWarehouseSelect.value = previouslySelectedDestination; // re-set if still valid
+        }
+    }
+
+    if (sourceWarehouseSelect) {
+        sourceWarehouseSelect.addEventListener('change', function() {
+            updateAvailableQuantity();
+            updateDestinationOptions();
+        });
+        // Initial call in case a source warehouse is pre-selected
+        updateAvailableQuantity();
+        updateDestinationOptions(); 
+    }
+    
+    // Ensure destination cannot be same as source on initial load if source is pre-selected
+    // This might happen if WTForms pre-populates the form on error
+    if (sourceWarehouseSelect && sourceWarehouseSelect.value){
+         updateDestinationOptions();
+    }
+
+});
+</script>
 {% endblock %}

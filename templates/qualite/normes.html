@@ -1,21 +1,162 @@
 {% extends "layout.html" %}
 
-{% block title %}Normes de Qualité{% endblock %}
+{% block title %}Normes et Standards de Qualité{% endblock %}
+
+{% block custom_css %}
+<style>
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .action-buttons .btn {
+        margin-right: 5px;
+    }
+    .description-cell {
+        max-width: 300px; /* Limit width of description for better layout */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Normes et Standards de Qualité</h3>
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-certificate me-2"></i>Normes et Standards de Qualité</h1>
+        {% if has_permission('supervisor') %}
+        <a href="{{ url_for('parametres_norme_ajouter') }}" class="btn btn-primary">
+            <i class="fas fa-plus-circle me-1"></i> Ajouter une Norme
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                <div class="card-body">
-                    <!-- Liste des normes de qualité ici -->
-                    <p>Liste des normes et standards...</p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    {# Note: Server-side filtering by category is not implemented in the current qualite_normes route.
+       If 'categories' were passed for filtering, it would look like this:
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('qualite_normes') }}" class="row gx-3 gy-2 align-items-end">
+                <div class="col-md-4">
+                    <label for="filter_categorie" class="form-label">Filtrer par Catégorie</label>
+                    <select class="form-select" id="filter_categorie" name="categorie">
+                        <option value="">Toutes les catégories</option>
+                        {% for cat in categories_filtre %}  {# Assuming categories_filtre is passed #}
+                        <option value="{{ cat.id }}" {% if request.args.get('categorie') == cat.id|string %}selected{% endif %}>{{ cat.nom }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-            </div>
+                <div class="col-md-auto">
+                    <button type="submit" class="btn btn-info"><i class="fas fa-filter me-1"></i>Filtrer</button>
+                </div>
+            </form>
         </div>
     </div>
+    #}
+
+    <!-- Tableau des Normes -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Liste des Normes Enregistrées</h5>
+        </div>
+        <div class="card-body">
+            {% if normes %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Code</th>
+                            <th>Nom de la Norme</th>
+                            <th>Description</th>
+                            <th>Catégorie</th>
+                            <th>Organisme</th>
+                            <th>Date Publication</th>
+                            <th class="text-center">Nb. Produits Associés</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for norme in normes %}
+                        <tr>
+                            <td>{{ norme.code }}</td>
+                            <td>
+                                <a href="{{ url_for('qualite_norme_details', norme_id=norme.id) }}">
+                                    {{ norme.nom }}
+                                </a>
+                            </td>
+                            <td class="description-cell" title="{{ norme.description | default('', true) }}">
+                                {{ norme.description | default('N/A', true) | truncate(80) }}
+                            </td>
+                            <td>{{ norme.categorie | default('N/A', true) }}</td>
+                            <td>{{ norme.organisme | default('N/A', true) }}</td>
+                            <td>{{ norme.date_publication | format_date if norme.date_publication else 'N/A' }}</td>
+                            <td class="text-center">{{ norme.nb_produits | default(0) }}</td>
+                            <td class="text-center action-buttons">
+                                <a href="{{ url_for('qualite_norme_details', norme_id=norme.id) }}" class="btn btn-xs btn-outline-info" title="Voir Détails">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if norme.document_url %}
+                                <a href="{{ norme.document_url }}" target="_blank" class="btn btn-xs btn-outline-secondary" title="Voir Document">
+                                    <i class="fas fa-file-alt"></i>
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info text-center" role="alert">
+                Aucune norme de qualité n'a été enregistrée pour le moment.
+                {% if has_permission('supervisor') %}
+                <a href="{{ url_for('parametres_norme_ajouter') }}" class="alert-link">Ajouter une nouvelle norme</a>.
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Pagination (Placeholder - to be implemented if pagination object is passed) #}
+    {% if pagination and pagination.total_pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('qualite_normes', page=pagination.prev_num, **request.args) }}" aria-label="Précédent">&laquo;</a>
+            </li>
+            {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    <li class="page-item {% if pagination.page == page_num %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('qualite_normes', page=page_num, **request.args) }}">{{ page_num }}</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+            {% endfor %}
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('qualite_normes', page=pagination.next_num, **request.args) }}" aria-label="Suivant">&raquo;</a>
+            </li>
+        </ul>
+        {% if pagination.total %}
+        <p class="text-center text-muted">
+            Affichage de {{ pagination.offset + 1 }}-{{ pagination.offset + pagination.items | length }} sur {{ pagination.total }} normes.
+        </p>
+        {% endif %}
+    </nav>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block custom_js %}
+{# Any specific JS for this page could go here, e.g., client-side table filtering/sorting if server-side filtering is not used #}
 {% endblock %}

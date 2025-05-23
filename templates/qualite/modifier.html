@@ -1,21 +1,155 @@
 {% extends "layout.html" %}
 
-{% block title %}Modifier Contrôle Qualité{% endblock %}
+{% block title %}Modifier Contrôle: {{ controle.produit_nom if controle else 'N/A' }} - {{ controle.date_controle | format_datetime if controle and controle.date_controle else 'N/A' }}{% endblock %}
+
+{% block custom_css %}
+<style>
+    .form-label {
+        font-weight: 500;
+    }
+    .card-header h4, .card-header h5 {
+        font-size: 1.35rem;
+        margin-bottom: 0;
+    }
+    .control-info-card {
+        background-color: #f8f9fa; /* Light background for info */
+    }
+    .current-report-link {
+        display: inline-block;
+        margin-top: 10px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container mt-4">
+    {% if controle %}
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
+        <div class="col-lg-9 col-xl-8">
+            <!-- Control Information Card -->
+            <div class="card shadow-sm mb-4 control-info-card">
                 <div class="card-header">
-                    <h3 class="text-center">Modifier le Contrôle Qualité</h3>
+                    <h5 class="text-primary">Informations sur le Contrôle à Modifier</h5>
                 </div>
-                <div class="card-body">
-                    <!-- Formulaire pour modifier un contrôle qualité -->
-                    <p>Formulaire de modification de contrôle qualité...</p>
+                <div class="card-body py-2">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Produit:</strong> {{ controle.produit_nom }} ({{ controle.reference }})</p>
+                            {% if controle.numero_lot %}
+                            <p class="mb-1"><strong>Numéro de Lot:</strong> {{ controle.numero_lot }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            {% if controle.numero_serie %}
+                            <p class="mb-1"><strong>Numéro de Série:</strong> {{ controle.numero_serie }}</p>
+                            {% endif %}
+                            <p class="mb-0"><strong>Date du Contrôle:</strong> {{ controle.date_controle | format_datetime if controle.date_controle else 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Card -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4><i class="fas fa-edit me-2"></i>Modifier le Contrôle Qualité</h4>
+                </div>
+                <div class="card-body p-4">
+                    {# Flashed messages display area #}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('qualite_modifier', controle_id=controle.id) }}" enctype="multipart/form-data">
+                        {{ form.hidden_tag() if form else '' }} {# For CSRF token if using Flask-WTF #}
+
+                        <div class="mb-3">
+                            <label for="type_controle" class="form-label">Type de Contrôle <span class="text-danger">*</span></label>
+                            {{ form.type_controle(class="form-control", value=controle.type_controle, required=True) if form else '<input type="text" class="form-control" id="type_controle" name="type_controle" value="' ~ (controle.type_controle if controle.type_controle is not none else '') ~ '" required>' }}
+                            {% if form and form.type_controle.errors %}<div class="invalid-feedback d-block">{% for error in form.type_controle.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="resultat" class="form-label">Résultat <span class="text-danger">*</span></label>
+                            {% if form and form.resultat %}
+                                {{ form.resultat(class="form-select", default=controle.resultat, required=True) }}
+                            {% else %}
+                            <select class="form-select" id="resultat" name="resultat" required>
+                                <option value="Conforme" {% if controle.resultat == 'Conforme' %}selected{% endif %}>Conforme</option>
+                                <option value="Non Conforme" {% if controle.resultat == 'Non Conforme' %}selected{% endif %}>Non Conforme</option>
+                                <option value="En Attente" {% if controle.resultat == 'En Attente' %}selected{% endif %}>En Attente</option>
+                            </select>
+                            {% endif %}
+                            {% if form and form.resultat.errors %}<div class="invalid-feedback d-block">{% for error in form.resultat.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="commentaire" class="form-label">Commentaire</label>
+                            {{ form.commentaire(class="form-control", rows="3", default=controle.commentaire) if form else '<textarea class="form-control" id="commentaire" name="commentaire" rows="3">' ~ (controle.commentaire if controle.commentaire is not none else '') ~ '</textarea>' }}
+                            {% if form and form.commentaire.errors %}<div class="invalid-feedback d-block">{% for error in form.commentaire.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="mesures" class="form-label">Mesures (JSON)</label>
+                            {{ form.mesures(class="form-control", rows="3", default=controle.mesures) if form else '<textarea class="form-control" id="mesures" name="mesures" rows="3">' ~ (controle.mesures if controle.mesures is not none else '') ~ '</textarea>' }}
+                            <small class="form-text text-muted">Si des mesures sont enregistrées, elles doivent être au format JSON valide.</small>
+                            {% if form and form.mesures.errors %}<div class="invalid-feedback d-block">{% for error in form.mesures.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="rapport" class="form-label">Rapport de Contrôle (PDF, Image)</label>
+                            {{ form.rapport(class="form-control", accept=".pdf,.jpg,.jpeg,.png") if form else '<input type="file" class="form-control" id="rapport" name="rapport" accept=".pdf,.jpg,.jpeg,.png">' }}
+                            {% if form and form.rapport.errors %}<div class="invalid-feedback d-block">{% for error in form.rapport.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            {% if controle.rapport_url %}
+                                <div class="mt-2">
+                                    <p class="mb-1">Rapport actuel : 
+                                        <a href="{{ url_for('static', filename=controle.rapport_url) }}" target="_blank" class="current-report-link">
+                                            <i class="fas fa-file-alt me-1"></i>Voir le rapport actuel
+                                        </a>
+                                    </p>
+                                    <div class="form-check">
+                                        {{ form.supprimer_rapport(class="form-check-input") if form and form.supprimer_rapport else '<input type="checkbox" class="form-check-input" id="supprimer_rapport" name="supprimer_rapport">' }}
+                                        <label class="form-check-label" for="supprimer_rapport">Supprimer le rapport actuel (si un nouveau est téléchargé ou si coché)</label>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('qualite_details', controle_id=controle.id) }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Annuler / Retour
+                            </a>
+                            {% if form and form.submit %}
+                                {{ form.submit(class="btn btn-primary btn-lg") }}
+                            {% else %}
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-save me-2"></i>Enregistrer Modifications
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
+    {% else %}
+    <div class="alert alert-danger text-center" role="alert">
+        Contrôle qualité non trouvé. Impossible de le modifier.
+        <a href="{{ url_for('qualite_liste') }}" class="alert-link">Retour à la liste des contrôles</a>.
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block custom_js %}
+{# Any specific JS for this page could go here #}
 {% endblock %}

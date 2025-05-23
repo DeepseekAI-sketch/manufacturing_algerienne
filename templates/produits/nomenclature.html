@@ -1,0 +1,280 @@
+{% extends "layout.html" %}
+
+{% block title %}Nomenclature: {{ produit.nom if produit else 'N/A' }}{% endblock %}
+
+{% block custom_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
+<style>
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .action-buttons .btn {
+        margin-right: 5px;
+    }
+    .stat-card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #e3e6f0;
+        border-radius: .35rem;
+        background-color: #fff;
+        text-align: center;
+    }
+    .stat-card .stat-value {
+        font-size: 1.75rem;
+        font-weight: bold;
+        display: block;
+        color: #4e73df;
+    }
+    .stat-card .stat-label {
+        font-size: 0.9rem;
+        color: #858796;
+    }
+    .nomenclature-level-0 { font-weight: bold; }
+    .nomenclature-level-1 { padding-left: 2em !important; }
+    .nomenclature-level-2 { padding-left: 4em !important; }
+    .nomenclature-level-3 { padding-left: 6em !important; }
+    /* Add more levels if needed */
+
+    #nomenclatureTree {
+        border: 1px solid #ddd;
+        padding: 15px;
+        border-radius: .25rem;
+        background-color: #f9f9f9;
+        min-height: 200px; /* Ensure it's visible even if empty initially */
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    {% if produit %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-sitemap me-2"></i>Nomenclature: {{ produit.nom }}</h1>
+        <div>
+            {% if has_permission('supervisor') and produit.type_produit != 'matiere_premiere' %}
+            <a href="{{ url_for('nomenclature_ajouter_composant', produit_id=produit.id) }}" class="btn btn-primary">
+                <i class="fas fa-plus-circle me-1"></i> Ajouter Composant
+            </a>
+            {% endif %}
+            <a href="{{ url_for('produit_details', produit_id=produit.id) }}" class="btn btn-outline-secondary ms-2">
+                <i class="fas fa-arrow-left me-1"></i> Retour au Produit
+            </a>
+        </div>
+    </div>
+
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Product Info & Nomenclature Stats -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Informations sur le Produit et la Nomenclature</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-5">
+                    <p><strong>Nom du Produit:</strong> {{ produit.nom }}</p>
+                    <p><strong>Référence:</strong> {{ produit.reference }}</p>
+                    <p><strong>Type:</strong> <span class="badge bg-info">{{ produit.type_produit_display | default(produit.type_produit | capitalize if produit.type_produit else 'N/A') }}</span></p>
+                </div>
+                <div class="col-md-7">
+                    <div class="row">
+                        <div class="col-sm-4">
+                            <div class="stat-card">
+                                <span class="stat-value">{{ cout_total | format_currency if cout_total is not none else 'N/A' }}</span>
+                                <span class="stat-label">Coût Total Nomenclature</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-4">
+                             <div class="stat-card">
+                                <span class="stat-value">{{ nb_composants if nb_composants is not none else 'N/A' }}</span>
+                                <span class="stat-label">Nombre Total de Composants</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-4">
+                             <div class="stat-card">
+                                <span class="stat-value">{{ profondeur_max if profondeur_max is not none else 'N/A' }}</span>
+                                <span class="stat-label">Profondeur Maximale</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs for Table and Tree View -->
+    <ul class="nav nav-tabs mb-3" id="nomenclatureViewTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="table-view-tab" data-bs-toggle="tab" data-bs-target="#table-view" type="button" role="tab" aria-controls="table-view" aria-selected="true"><i class="fas fa-list-ul me-1"></i>Vue Tableau</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tree-view-tab" data-bs-toggle="tab" data-bs-target="#tree-view" type="button" role="tab" aria-controls="tree-view" aria-selected="false"><i class="fas fa-network-wired me-1"></i>Vue Arborescente</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="nomenclatureViewTabContent">
+        <!-- Table View -->
+        <div class="tab-pane fade show active" id="table-view" role="tabpanel" aria-labelledby="table-view-tab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Composants de la Nomenclature (Tableau)</h5>
+                </div>
+                <div class="card-body">
+                    {% if composants %}
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Composant (Nom, Référence)</th>
+                                    <th>Type</th>
+                                    <th class="text-end">Quantité</th>
+                                    <th>Unité</th>
+                                    <th class="text-end">Prix Unitaire</th>
+                                    <th class="text-end">Coût Total Ligne</th>
+                                    {% if has_permission('supervisor') %}<th class="text-center">Actions</th>{% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for comp in composants %}
+                                <tr class="nomenclature-level-{{ comp.niveau }}">
+                                    <td class="nomenclature-level-{{ comp.niveau }}">
+                                        <span style="padding-left: {{ comp.niveau * 1.5 }}em;">
+                                            {% if comp.niveau > 0 %}<i class="fas fa-level-up-alt fa-rotate-90 text-muted me-1"></i>{% endif %}
+                                            <a href="{{ url_for('produit_details', produit_id=comp.composant_id) }}">{{ comp.nom_composant }}</a>
+                                            <small class="text-muted d-block ps-3">Réf: {{ comp.reference_composant }}</small>
+                                        </span>
+                                    </td>
+                                    <td><span class="badge bg-secondary">{{ comp.type_produit_display | default(comp.type_produit | capitalize if comp.type_produit else 'N/A') }}</span></td>
+                                    <td class="text-end">{{ comp.quantite_necessaire | round(3) }}</td>
+                                    <td>{{ comp.unite_mesure_composant }}</td>
+                                    <td class="text-end">{{ comp.prix_unitaire_composant | format_currency if comp.prix_unitaire_composant is not none else 'N/A' }}</td>
+                                    <td class="text-end">{{ (comp.quantite_necessaire * (comp.prix_unitaire_composant if comp.prix_unitaire_composant is not none else 0)) | format_currency }}</td>
+                                    {% if has_permission('supervisor') %}
+                                    <td class="text-center action-buttons">
+                                        <a href="{{ url_for('nomenclature_modifier_composant', produit_id=produit.id, composant_id=comp.id) }}" class="btn btn-xs btn-outline-primary" title="Modifier ce composant">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <form method="POST" action="{{ url_for('nomenclature_supprimer_composant', produit_id=produit.id, composant_id=comp.id) }}" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce composant de la nomenclature ?');" style="display: inline;">
+                                            <button type="submit" class="btn btn-xs btn-outline-danger" title="Supprimer ce composant">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-center text-muted">Aucun composant dans la nomenclature de ce produit.
+                        {% if has_permission('supervisor') and produit.type_produit != 'matiere_premiere' %}
+                        <a href="{{ url_for('nomenclature_ajouter_composant', produit_id=produit.id) }}">Ajouter un composant</a>.
+                        {% endif %}
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Tree View -->
+        <div class="tab-pane fade" id="tree-view" role="tabpanel" aria-labelledby="tree-view-tab">
+            <div class="card shadow-sm">
+                 <div class="card-header bg-light">
+                    <h5 class="mb-0">Composants de la Nomenclature (Arborescence)</h5>
+                </div>
+                <div class="card-body">
+                    {% if tree_data %}
+                        <div id="nomenclatureTree"></div>
+                    {% else %}
+                        <p class="text-center text-muted">Données pour la vue arborescente non disponibles.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-danger text-center" role="alert">
+        Le produit demandé n'a pas été trouvé.
+        <a href="{{ url_for('produits_liste') }}" class="alert-link">Retour à la liste des produits</a>.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block custom_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script> {# jsTree requires jQuery #}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+<script>
+    $(function () { // jQuery ready function
+        {% if tree_data %}
+        var rawTreeData = {{ tree_data | tojson }};
+
+        function formatDataForJsTree(node) {
+            let jsTreeNode = {
+                text: `${node.name} (Réf: ${node.reference || 'N/A'}, Type: ${node.type_display || node.type || 'N/A'})`, // Display type_display if available
+                // icon: node.type === 'produit_fini' ? 'fas fa-box-open' : (node.type === 'produit_semi_fini' ? 'fas fa-cogs' : 'fas fa-shapes'),
+                state: {
+                    opened: true // Open all nodes by default
+                },
+                children: []
+            };
+            if (node.children && node.children.length > 0) {
+                node.children.forEach(function(childNode) {
+                    jsTreeNode.children.push(formatDataForJsTree(childNode));
+                });
+            }
+            return jsTreeNode;
+        }
+        
+        var formattedTreeData = [formatDataForJsTree(rawTreeData)]; // jsTree expects an array of root nodes
+
+        $('#nomenclatureTree').jstree({
+            'core': {
+                'data': formattedTreeData,
+                'themes': {
+                    'name': 'default', // Using the default theme
+                    'responsive': true,
+                    'stripes': true
+                }
+            },
+            'plugins': ['types', 'wholerow'], // wholerow makes the entire row clickable
+            'types': {
+                'default': { 'icon': 'fas fa-folder text-warning' }, // Default icon
+                // You can define more specific icons per type if needed
+                // 'produit_fini': { 'icon': 'fas fa-box-open text-primary' },
+                // 'produit_semi_fini': { 'icon': 'fas fa-cogs text-info' },
+                // 'matiere_premiere': { 'icon': 'fas fa-shapes text-success' }
+            }
+        });
+        {% endif %}
+
+        // Tab persistence using URL hash
+        var hash = window.location.hash;
+        if (hash) {
+            var triggerEl = document.querySelector('#nomenclatureViewTab button[data-bs-target="' + hash + '"]');
+            if (triggerEl) {
+                var tab = new bootstrap.Tab(triggerEl);
+                tab.show();
+            }
+        }
+        var tabElms = document.querySelectorAll('#nomenclatureViewTab button[data-bs-toggle="tab"]');
+        tabElms.forEach(function(tabElm) {
+            tabElm.addEventListener('shown.bs.tab', function (event) {
+                history.pushState(null, null, event.target.dataset.bsTarget);
+            });
+        });
+    });
+</script>
+{% endblock %}

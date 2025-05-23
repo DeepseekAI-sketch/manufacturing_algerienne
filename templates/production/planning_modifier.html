@@ -38,16 +38,43 @@
                     <form method="POST" action="{{ url_for('production_planning_modifier', planning_id=planning.id) }}">
                         {{ form.hidden_tag() if form else '' }} {# For CSRF token if using Flask-WTF #}
 
-                        <div class="alert alert-info p-2 mb-3">
-                            <small><strong>Produit:</strong> {{ planning.produit_nom }} ({{ planning.reference }})<br>
-                            <strong>Ligne:</strong> {{ planning.ligne_nom }}</small>
-                        </div>
-                        
-                        {# Readonly fields for produit_id and ligne_production_id if not changeable, or dropdowns if they are #}
-                        {# For this example, assuming they are not changed once planned, but showing how to if needed #}
-                        <input type="hidden" name="produit_id" value="{{ planning.produit_id }}">
-                        <input type="hidden" name="ligne_production_id" value="{{ planning.ligne_production_id }}">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="produit_id" class="form-label">Produit <span class="text-danger">*</span></label>
+                                {% if form and form.produit_id %}
+                                    {{ form.produit_id(class="form-select", default=planning.produit_id, required=True) }}
+                                {% elif produits %}
+                                    <select class="form-select" id="produit_id" name="produit_id" required>
+                                        <option value="" disabled>Choisir un produit...</option>
+                                        {% for produit_item in produits %} {# Renamed to produit_item to avoid conflict with planning.produit_nom #}
+                                        <option value="{{ produit_item.id }}" {% if planning.produit_id == produit_item.id %}selected{% endif %}>{{ produit_item.nom }} ({{ produit_item.reference }})</option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                    <p class="text-danger">Liste des produits non disponible.</p>
+                                    <input type="hidden" name="produit_id" value="{{ planning.produit_id }}"> {# Fallback to hidden if no list #}
+                                {% endif %}
+                                {% if form and form.produit_id and form.produit_id.errors %}<div class="invalid-feedback d-block">{% for error in form.produit_id.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
 
+                            <div class="col-md-6 mb-3">
+                                <label for="ligne_production_id" class="form-label">Ligne de Production <span class="text-danger">*</span></label>
+                                {% if form and form.ligne_production_id %}
+                                    {{ form.ligne_production_id(class="form-select", default=planning.ligne_production_id, required=True) }}
+                                {% elif lignes %}
+                                    <select class="form-select" id="ligne_production_id" name="ligne_production_id" required>
+                                        <option value="" disabled>Choisir une ligne...</option>
+                                        {% for ligne_item in lignes %} {# Renamed to ligne_item to avoid conflict #}
+                                        <option value="{{ ligne_item.id }}" {% if planning.ligne_production_id == ligne_item.id %}selected{% endif %}>{{ ligne_item.nom }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                    <p class="text-danger">Liste des lignes de production non disponible.</p>
+                                    <input type="hidden" name="ligne_production_id" value="{{ planning.ligne_production_id }}"> {# Fallback to hidden #}
+                                {% endif %}
+                                {% if form and form.ligne_production_id and form.ligne_production_id.errors %}<div class="invalid-feedback d-block">{% for error in form.ligne_production_id.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
 
                         <div class="mb-3">
                             <label for="date_production" class="form-label">Date de Production <span class="text-danger">*</span></label>

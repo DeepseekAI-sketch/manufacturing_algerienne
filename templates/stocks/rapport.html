@@ -1,21 +1,221 @@
 {% extends "layout.html" %}
 
-{% block title %}Rapports de Stock{% endblock %}
+{% block title %}Rapport d'Analyse des Stocks{% endblock %}
+
+{% block custom_css %}
+<style>
+    .stat-card {
+        text-align: center;
+        padding: 1rem;
+        border: 1px solid #e3e6f0;
+        border-radius: .35rem;
+        margin-bottom: 1.5rem;
+        background-color: #fff;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, .15) !important;
+    }
+    .stat-card .stat-value {
+        font-size: 1.75rem;
+        font-weight: bold;
+        display: block;
+        color: #4e73df; /* Default color, can be overridden */
+    }
+    .stat-card .stat-label {
+        font-size: 0.9rem;
+        color: #858796;
+        display: block;
+        margin-top: 0.25rem;
+    }
+    .stat-card.critical .stat-value { color: #e74a3b; } /* Red for critical/ruptures */
+    .stat-card.warning .stat-value { color: #f6c23e; } /* Yellow for alertes */
+
+    .card-header h5 {
+        font-size: 1.25rem;
+        font-weight: bold;
+    }
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .graph-container {
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: .25rem;
+        text-align: center; /* Center images */
+    }
+    .graph-container img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #dee2e6;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Rapports et Analyses des Stocks</h3>
+<div class="container-fluid mt-4">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-chart-bar me-2"></i>Rapport d'Analyse des Stocks</h1>
+        {# Optional: Export button or other actions can be added here #}
+    </div>
+
+    <!-- Flashed Messages (if any) -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                <div class="card-body">
-                    <!-- Interface pour la génération et la visualisation des rapports de stock -->
-                    <p>Graphiques et tableaux pour l'analyse des stocks...</p>
-                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Global Stock Statistics -->
+    {% if statistiques and statistiques.global %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Statistiques Globales des Stocks</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md col-sm-6 mb-3"><div class="stat-card"><span class="stat-value">{{ statistiques.global.nb_produits | default(0) }}</span><span class="stat-label">Nb Produits Total</span></div></div>
+                <div class="col-md col-sm-6 mb-3"><div class="stat-card"><span class="stat-value">{{ statistiques.global.nb_entrepots | default(0) }}</span><span class="stat-label">Nb Entrepôts</span></div></div>
+                <div class="col-md col-sm-6 mb-3"><div class="stat-card"><span class="stat-value">{{ statistiques.global.stock_total_valeur | format_currency if statistiques.global.stock_total_valeur is not none else (statistiques.global.stock_total_quantite | round(0) | default(0)) }}</span><span class="stat-label">Valeur/Qté Stock Total</span></div></div>
+                <div class="col-md col-sm-6 mb-3"><div class="stat-card warning"><span class="stat-value">{{ statistiques.global.nb_alertes | default(0) }}</span><span class="stat-label">Nb Produits en Alerte</span></div></div>
+                <div class="col-md col-sm-6 mb-3"><div class="stat-card critical"><span class="stat-value">{{ statistiques.global.nb_ruptures | default(0) }}</span><span class="stat-label">Nb Produits en Rupture</span></div></div>
             </div>
         </div>
     </div>
+    {% endif %}
+
+    <!-- Graphs Section 1: Categories and Movements -->
+    <div class="row">
+        {% if graphiques and graphiques.stocks_categories %}
+        <div class="col-xl-6 col-lg-12 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Répartition des Stocks par Catégorie</h5>
+                </div>
+                <div class="card-body graph-container">
+                    <img src="data:image/png;base64,{{ graphiques.stocks_categories }}" alt="Graphique des stocks par catégorie">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if graphiques and graphiques.mouvements %}
+        <div class="col-xl-6 col-lg-12 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Mouvements de Stock Récents (Entrées/Sorties)</h5>
+                </div>
+                <div class="card-body graph-container">
+                    <img src="data:image/png;base64,{{ graphiques.mouvements }}" alt="Graphique des mouvements de stock">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Stocks par Catégorie Table -->
+    {% if statistiques and statistiques.categories %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Détail des Stocks par Catégorie</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Catégorie</th>
+                            <th class="text-end">Nb Produits Distincts</th>
+                            <th class="text-end">Quantité Totale en Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cat_stat in statistiques.categories %}
+                        <tr>
+                            <td>{{ cat_stat.categorie_nom | default('N/A', true) }}</td>
+                            <td class="text-end">{{ cat_stat.nb_produits | default(0) }}</td>
+                            <td class="text-end">{{ cat_stat.stock_total | round(2) | default(0) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Graph Section 2: Alerts and Top Low Stock Products Table -->
+    <div class="row">
+        {% if graphiques and graphiques.alertes %}
+        <div class="col-xl-5 col-lg-12 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Produits en Alerte de Stock</h5>
+                </div>
+                <div class="card-body graph-container">
+                     <img src="data:image/png;base64,{{ graphiques.alertes }}" alt="Graphique des produits en alerte">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if statistiques and statistiques.stock_bas %}
+        <div class="col-xl-7 col-lg-12 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Top 10 Produits à Faible Stock</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Produit</th>
+                                    <th>Réf.</th>
+                                    <th>Catégorie</th>
+                                    <th>Entrepôt</th>
+                                    <th class="text-end">Quantité</th>
+                                    <th class="text-end">Seuil</th>
+                                    <th class="text-end">% Seuil Atteint</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in statistiques.stock_bas %}
+                                <tr class="{% if item.pourcentage_seuil <= 50 %}table-danger{% elif item.pourcentage_seuil <= 100 %}table-warning{% endif %}">
+                                    <td>
+                                        <a href="{{ url_for('produit_details', produit_id=item.produit_id) }}">
+                                            {{ item.produit_nom | default('N/A', true) }}
+                                        </a>
+                                    </td>
+                                    <td>{{ item.reference | default('N/A', true) }}</td>
+                                    <td>{{ item.categorie_nom | default('N/A', true) }}</td>
+                                    <td>{{ item.entrepot_nom | default('N/A', true) }}</td>
+                                    <td class="text-end">{{ item.quantite | round(2) if item.quantite is not none else 'N/A' }}</td>
+                                    <td class="text-end">{{ item.seuil_alerte | round(2) if item.seuil_alerte is not none else 'N/A' }}</td>
+                                    <td class="text-end fw-bold">{{ item.pourcentage_seuil | round(1) if item.pourcentage_seuil is not none else 'N/A' }}%</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if not statistiques and not graphiques %}
+    <div class="alert alert-info text-center" role="alert">
+        Aucune donnée de rapport de stock disponible pour le moment.
+    </div>
+    {% endif %}
+
 </div>
+{% endblock %}
+
+{% block custom_js %}
+{# Any specific JS for this page could go here, e.g., for Chart.js if using dynamic charts #}
 {% endblock %}

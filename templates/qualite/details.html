@@ -1,21 +1,210 @@
 {% extends "layout.html" %}
 
-{% block title %}Détails du Contrôle Qualité{% endblock %}
+{% block title %}Détails Contrôle Qualité: {{ controle.produit_nom if controle else 'N/A' }} - {{ controle.date_controle | format_datetime if controle and controle.date_controle else 'N/A' }}{% endblock %}
+
+{% block custom_css %}
+<style>
+    .card-header h5, .card-header h4 {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-bottom: 0;
+    }
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .badge { font-size: 0.9em; }
+    .action-buttons .btn {
+        margin-right: 5px;
+    }
+    .mesures-display {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+        white-space: pre-wrap; /* To respect newlines in JSON string */
+        font-family: monospace;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Détails du Contrôle Qualité</h3>
+<div class="container-fluid mt-4">
+    {% if controle %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-clipboard-list me-2"></i>Détails du Contrôle Qualité</h1>
+        <div class="action-buttons">
+            {% if has_permission('supervisor') %}
+            <a href="{{ url_for('qualite_modifier', controle_id=controle.id) }}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-edit me-1"></i> Modifier le Contrôle
+            </a>
+            {% endif %}
+            <a href="{{ url_for('qualite_liste') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> Retour à la Liste
+            </a>
+        </div>
+    </div>
+
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                <div class="card-body">
-                    <!-- Informations détaillées sur un contrôle qualité -->
-                    <p>Détails spécifiques d'un contrôle qualité...</p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Primary Control Information -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5>Informations Générales du Contrôle</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Produit:</strong> 
+                        <a href="{{ url_for('produit_details', produit_id=controle.produit_id) }}">
+                            {{ controle.produit_nom }} ({{ controle.reference }})
+                        </a>
+                    </p>
+                    <p><strong>Catégorie:</strong> {{ controle.categorie | default('N/A', true) }}</p>
+                    {% if controle.lot_id %}
+                    <p><strong>Lot de Production:</strong> 
+                        <a href="{{ url_for('production_details', production_id=controle.lot_id) }}">
+                            Lot #{{ controle.numero_lot | default(controle.lot_id, true) }}
+                        </a>
+                    </p>
+                    {% elif controle.numero_lot %}
+                    <p><strong>Numéro de Lot (manuel):</strong> {{ controle.numero_lot }}</p>
+                    {% endif %}
+                    {% if controle.numero_serie %}
+                    <p><strong>Numéro de Série:</strong> {{ controle.numero_serie }}</p>
+                    {% endif %}
+                    <p><strong>Type de Contrôle:</strong> {{ controle.type_controle | default('N/A', true) }}</p>
                 </div>
+                <div class="col-md-6">
+                    <p><strong>Date du Contrôle:</strong> {{ controle.date_controle | format_datetime if controle.date_controle else 'N/A' }}</p>
+                    <p><strong>Résultat:</strong> 
+                        <span class="badge {{ controle.classe_resultat | default('bg-secondary') }}">
+                            {{ controle.resultat_affichage | default(controle.resultat | capitalize if controle.resultat else 'N/A') }}
+                        </span>
+                    </p>
+                    <p><strong>Enregistré par:</strong> {{ controle.prenom ~ ' ' ~ controle.nom_utilisateur if controle.prenom and controle.nom_utilisateur else controle.nom_utilisateur | default('Système', true) }}</p>
+                    {% if controle.rapport_url %}
+                    <p><strong>Rapport:</strong> 
+                        <a href="{{ url_for('static', filename=controle.rapport_url) }}" target="_blank" class="btn btn-sm btn-outline-info">
+                            <i class="fas fa-file-alt me-1"></i>Voir le Rapport
+                        </a>
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+            {% if controle.commentaire %}
+            <hr>
+            <p><strong>Commentaire:</strong></p>
+            <p>{{ controle.commentaire | nl2br }}</p>
+            {% endif %}
+            {% if controle.mesures_dict %}
+            <hr>
+            <p><strong>Mesures Enregistrées:</strong></p>
+            <div class="mesures-display">
+                <ul class="list-unstyled mb-0">
+                {% for key, value in controle.mesures_dict.items() %}
+                    <li><strong>{{ key | capitalize }}:</strong> {{ value }}</li>
+                {% endfor %}
+                </ul>
+            </div>
+            {% elif controle.mesures %} {# Fallback for non-parsed JSON string #}
+            <hr>
+            <p><strong>Mesures (brutes):</strong></p>
+            <pre class="mesures-display"><code>{{ controle.mesures }}</code></pre>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Production Lot Information (if linked) -->
+    {% if controle.lot_info %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5>Informations sur le Lot de Production Associé (Lot #{{ controle.lot_info.numero_lot | default(controle.lot_id) }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Produit du Lot:</strong> {{ controle.lot_info.produit_nom }} ({{ controle.lot_info.reference }})</p>
+                    <p><strong>Ligne de Production:</strong> {{ controle.lot_info.ligne_nom | default('N/A', true) }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Date de Production:</strong> {{ controle.lot_info.date_production | format_datetime if controle.lot_info.date_production else 'N/A' }}</p>
+                    <p><strong>Quantité Produite:</strong> {{ controle.lot_info.quantite_produite | round(2) if controle.lot_info.quantite_produite is not none else 'N/A' }} {{ controle.lot_info.unite_mesure | default('', true) }}</p>
+                </div>
+            </div>
+             <a href="{{ url_for('production_details', production_id=controle.lot_id) }}" class="btn btn-sm btn-outline-secondary mt-2">
+                <i class="fas fa-industry me-1"></i> Voir Détails du Lot de Production
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Other Controls for this Lot/Serial -->
+    {% if controle.autres_controles %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5>Autres Contrôles pour 
+                {% if controle.lot_id %}ce Lot (Lot #{{ controle.numero_lot | default(controle.lot_id) }})
+                {% elif controle.numero_serie %}cette Série ({{ controle.numero_serie }})
+                {% else %}ce Produit
+                {% endif %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID Contrôle</th>
+                            <th>Type</th>
+                            <th class="text-center">Résultat</th>
+                            <th>Date</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ac in controle.autres_controles %}
+                        <tr>
+                            <td>{{ ac.id }}</td>
+                            <td>{{ ac.type_controle | default('N/A', true) }}</td>
+                            <td class="text-center">
+                                <span class="badge {{ ac.classe_resultat | default('bg-secondary') }}">
+                                    {{ ac.resultat_affichage | default(ac.resultat | capitalize if ac.resultat else 'N/A') }}
+                                </span>
+                            </td>
+                            <td>{{ ac.date_controle | format_datetime if ac.date_controle else 'N/A' }}</td>
+                            <td class="text-center">
+                                <a href="{{ url_for('qualite_details', controle_id=ac.id) }}" class="btn btn-xs btn-outline-info" title="Voir Détails">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
+    {% endif %}
+
+    {% else %}
+    <div class="alert alert-danger text-center" role="alert">
+        Les détails de ce contrôle qualité n'ont pas pu être chargés.
+        <a href="{{ url_for('qualite_liste') }}" class="alert-link">Retour à la liste des contrôles</a>.
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block custom_js %}
+{# Any specific JS for this page could go here #}
 {% endblock %}

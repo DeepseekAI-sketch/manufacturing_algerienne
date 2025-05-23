@@ -1,21 +1,172 @@
 {% extends "layout.html" %}
 
-{% block title %}Ajouter Intervention{% endblock %}
+{% block title %}Planifier une Nouvelle Maintenance{% endblock %}
+
+{% block custom_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr.min.css') }}">
+<style>
+    .form-label {
+        font-weight: 500;
+    }
+    .card-header h4 {
+        font-size: 1.5rem;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container mt-4">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="text-center">Planifier une Nouvelle Intervention</h3>
+        <div class="col-lg-9 col-xl-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-calendar-plus me-2"></i>Planifier une Nouvelle Maintenance</h4>
                 </div>
-                <div class="card-body">
-                    <!-- Formulaire pour ajouter une intervention de maintenance -->
-                    <p>Formulaire de planification d'intervention...</p>
+                <div class="card-body p-4">
+                    {# Flashed messages display area #}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('maintenance_ajouter') }}">
+                        {{ form.hidden_tag() if form else '' }} {# For CSRF token if using Flask-WTF #}
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="equipement_id" class="form-label">Équipement <span class="text-danger">*</span></label>
+                                {% if form and form.equipement_id %}
+                                    {{ form.equipement_id(class="form-select", required=True) }}
+                                {% elif equipements %}
+                                    <select class="form-select" id="equipement_id" name="equipement_id" required>
+                                        <option value="" disabled selected>Choisir un équipement...</option>
+                                        {% for equip in equipements %}
+                                        <option value="{{ equip.id }}">{{ equip.nom }} {% if equip.ligne_nom %}(Ligne: {{ equip.ligne_nom }}){% endif %}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                    <p class="text-danger">Liste des équipements non disponible.</p>
+                                {% endif %}
+                                {% if form and form.equipement_id and form.equipement_id.errors %}<div class="invalid-feedback d-block">{% for error in form.equipement_id.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="type_maintenance_id" class="form-label">Type de Maintenance <span class="text-danger">*</span></label>
+                                {% if form and form.type_maintenance_id %}
+                                    {{ form.type_maintenance_id(class="form-select", required=True) }}
+                                {% elif types_maintenance %}
+                                    <select class="form-select" id="type_maintenance_id" name="type_maintenance_id" required>
+                                        <option value="" disabled selected>Choisir un type...</option>
+                                        {% for type_m in types_maintenance %}
+                                        <option value="{{ type_m.id }}">{{ type_m.nom }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                    <p class="text-danger">Liste des types de maintenance non disponible.</p>
+                                {% endif %}
+                                {% if form and form.type_maintenance_id and form.type_maintenance_id.errors %}<div class="invalid-feedback d-block">{% for error in form.type_maintenance_id.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="date_programmee" class="form-label">Date Programmée <span class="text-danger">*</span></label>
+                                {{ form.date_programmee(class="form-control flatpickr-datetime", required=True, placeholder="YYYY-MM-DD HH:MM") if form else '<input type="text" class="form-control flatpickr-datetime" id="date_programmee" name="date_programmee" required placeholder="YYYY-MM-DD HH:MM">' }}
+                                {% if form and form.date_programmee.errors %}<div class="invalid-feedback d-block">{% for error in form.date_programmee.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="duree_estimee" class="form-label">Durée Estimée (heures)</label>
+                                {{ form.duree_estimee(class="form-control", type="number", step="0.1", min="0") if form else '<input type="number" class="form-control" id="duree_estimee" name="duree_estimee" step="0.1" min="0" placeholder="Ex: 2.5">' }}
+                                {% if form and form.duree_estimee.errors %}<div class="invalid-feedback d-block">{% for error in form.duree_estimee.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description de l'Intervention</label>
+                            {{ form.description(class="form-control", rows="3", placeholder="Décrire les travaux à effectuer...") if form else '<textarea class="form-control" id="description" name="description" rows="3" placeholder="Décrire les travaux à effectuer..."></textarea>' }}
+                            {% if form and form.description.errors %}<div class="invalid-feedback d-block">{% for error in form.description.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="statut" class="form-label">Statut <span class="text-danger">*</span></label>
+                                {% if form and form.statut %}
+                                    {{ form.statut(class="form-select", required=True) }}
+                                {% else %}
+                                <select class="form-select" id="statut" name="statut" required>
+                                    <option value="planifie" selected>Planifié</option>
+                                    <option value="en_cours">En cours</option>
+                                </select>
+                                {% endif %}
+                                {% if form and form.statut.errors %}<div class="invalid-feedback d-block">{% for error in form.statut.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="priorite" class="form-label">Priorité <span class="text-danger">*</span></label>
+                                {% if form and form.priorite %}
+                                    {{ form.priorite(class="form-select", required=True) }}
+                                {% else %}
+                                <select class="form-select" id="priorite" name="priorite" required>
+                                    <option value="basse">Basse</option>
+                                    <option value="moyenne" selected>Moyenne</option>
+                                    <option value="haute">Haute</option>
+                                </select>
+                                {% endif %}
+                                {% if form and form.priorite.errors %}<div class="invalid-feedback d-block">{% for error in form.priorite.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="impact_production" class="form-label">Impact sur la Production</label>
+                                {% if form and form.impact_production %}
+                                    {{ form.impact_production(class="form-select") }}
+                                {% else %}
+                                <select class="form-select" id="impact_production" name="impact_production">
+                                    <option value="non" selected>Non</option>
+                                    <option value="oui">Oui</option>
+                                </select>
+                                {% endif %}
+                                {% if form and form.impact_production.errors %}<div class="invalid-feedback d-block">{% for error in form.impact_production.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('maintenance_liste') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Retour à la Liste
+                            </a>
+                            {% if form and form.submit %}
+                                {{ form.submit(class="btn btn-primary btn-lg") }}
+                            {% else %}
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-calendar-check me-2"></i>Planifier Maintenance
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block custom_js %}
+<script src="{{ url_for('static', filename='js/flatpickr.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/flatpickr.fr.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr(".flatpickr-datetime", {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            locale: "fr",
+            allowInput: true,
+            minDate: "today"
+        });
+    });
+</script>
 {% endblock %}

@@ -1,0 +1,115 @@
+{% extends "layout.html" %}
+
+{% block title %}Liste des Nomenclatures{% endblock %}
+
+{% block custom_css %}
+<style>
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .action-buttons .btn {
+        margin-right: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0 text-gray-800"><i class="fas fa-sitemap me-2"></i>Liste des Nomenclatures (BOM)</h1>
+        {# Optional: Add a button here if needed, e.g., back to all products or other relevant action #}
+    </div>
+
+    <!-- Explanation Text -->
+    <div class="alert alert-info" role="alert">
+        <h4 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Qu'est-ce qu'une Nomenclature ?</h4>
+        <p>Une nomenclature (ou Bill of Materials - BOM) est la liste structurée de tous les composants, matières premières, et sous-assemblages nécessaires pour fabriquer un produit.</p>
+        <p>Cette page liste les produits qui sont typiquement assemblés (produits finis ou semi-finis) et pour lesquels une nomenclature peut être définie. Les matières premières n'ont généralement pas de nomenclature propre car elles sont les éléments de base.</p>
+        <hr>
+        <p class="mb-0">Cliquez sur "Voir/Modifier Nomenclature" pour gérer les composants de chaque produit.</p>
+    </div>
+
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Tableau des Produits avec Nomenclature -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Produits avec Nomenclature Potentielle</h5>
+        </div>
+        <div class="card-body">
+            {% if produits %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nom du Produit</th>
+                            <th>Référence</th>
+                            <th>Catégorie</th>
+                            <th>Type</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for produit in produits %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('nomenclature_produit', produit_id=produit.id) }}">
+                                    {{ produit.nom }}
+                                </a>
+                            </td>
+                            <td>{{ produit.reference }}</td>
+                            <td>{{ produit.categorie.nom if produit.categorie else (produit.categorie_nom if produit.categorie_nom else 'N/A') }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if produit.type_produit == 'produit_fini' %}bg-success
+                                    {% elif produit.type_produit == 'produit_semi_fini' %}bg-info
+                                    {% else %}bg-secondary
+                                    {% endif %}">
+                                    {{ produit.type_produit_display | default(produit.type_produit | capitalize if produit.type_produit else 'N/A') }}
+                                </span>
+                            </td>
+                            <td class="text-center action-buttons">
+                                <a href="{{ url_for('nomenclature_produit', produit_id=produit.id) }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-sitemap me-1"></i> Voir/Modifier Nomenclature
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-warning text-center" role="alert">
+                Aucun produit de type "Produit Fini" ou "Produit Semi-Fini" trouvé pour lequel une nomenclature peut être définie.
+                <br>Vous pouvez <a href="{{ url_for('produit_ajouter') }}" class="alert-link">ajouter un nouveau produit</a> ou modifier le type des produits existants.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Pagination could be added here if the list becomes very long #}
+    {# 
+    {% if pagination and pagination.total_pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            ... pagination links ...
+        </ul>
+    </nav>
+    {% endif %}
+    #}
+</div>
+{% endblock %}
+
+{% block custom_js %}
+{# Any specific JS for this page could go here #}
+{% endblock %}
