@@ -2,20 +2,165 @@
 
 {% block title %}Ajouter au Planning de Production{% endblock %}
 
+{% block custom_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr.min.css') }}">
+<style>
+    .form-label {
+        font-weight: 500;
+    }
+    .card-header h4 {
+        font-size: 1.5rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container">
+<div class="container mt-4">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="text-center">Ajouter un Élément au Planning</h3>
+        <div class="col-lg-9 col-xl-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-calendar-plus me-2"></i>Ajouter un Élément au Planning de Production</h4>
                 </div>
-                <div class="card-body">
-                    <!-- Formulaire pour ajouter un élément au planning de production -->
-                    <p>Formulaire d'ajout au planning...</p>
+                <div class="card-body p-4">
+                    {# Flashed messages display area #}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('production_planning_ajouter') }}">
+                        {{ form.hidden_tag() if form else '' }} {# For CSRF token if using Flask-WTF #}
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="produit_id" class="form-label">Produit <span class="text-danger">*</span></label>
+                                {% if form and form.produit_id %}
+                                    {{ form.produit_id(class="form-select", required=True) }}
+                                {% elif produits %}
+                                    <select class="form-select" id="produit_id" name="produit_id" required>
+                                        <option value="" disabled selected>Choisir un produit...</option>
+                                        {% for produit in produits %}
+                                        <option value="{{ produit.id }}">{{ produit.nom }} ({{ produit.reference }})</option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                    <p class="text-danger">Liste des produits non disponible.</p>
+                                {% endif %}
+                                {% if form and form.produit_id and form.produit_id.errors %}<div class="invalid-feedback d-block">{% for error in form.produit_id.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="ligne_production_id" class="form-label">Ligne de Production <span class="text-danger">*</span></label>
+                                {% if form and form.ligne_production_id %}
+                                    {{ form.ligne_production_id(class="form-select", required=True) }}
+                                {% elif lignes %}
+                                    <select class="form-select" id="ligne_production_id" name="ligne_production_id" required>
+                                        <option value="" disabled selected>Choisir une ligne...</option>
+                                        {% for ligne in lignes %}
+                                        <option value="{{ ligne.id }}">{{ ligne.nom }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                    <p class="text-danger">Liste des lignes de production non disponible.</p>
+                                {% endif %}
+                                {% if form and form.ligne_production_id and form.ligne_production_id.errors %}<div class="invalid-feedback d-block">{% for error in form.ligne_production_id.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="date_production" class="form-label">Date de Production <span class="text-danger">*</span></label>
+                            {{ form.date_production(class="form-control flatpickr-date", required=True, placeholder="YYYY-MM-DD") if form else '<input type="text" class="form-control flatpickr-date" id="date_production" name="date_production" required placeholder="YYYY-MM-DD">' }}
+                            {% if form and form.date_production.errors %}<div class="invalid-feedback d-block">{% for error in form.date_production.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="heure_debut" class="form-label">Heure de Début <span class="text-danger">*</span></label>
+                                {{ form.heure_debut(class="form-control flatpickr-time", required=True, placeholder="HH:MM") if form else '<input type="text" class="form-control flatpickr-time" id="heure_debut" name="heure_debut" required placeholder="HH:MM">' }}
+                                {% if form and form.heure_debut.errors %}<div class="invalid-feedback d-block">{% for error in form.heure_debut.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="heure_fin" class="form-label">Heure de Fin <span class="text-danger">*</span></label>
+                                {{ form.heure_fin(class="form-control flatpickr-time", required=True, placeholder="HH:MM") if form else '<input type="text" class="form-control flatpickr-time" id="heure_fin" name="heure_fin" required placeholder="HH:MM">' }}
+                                {% if form and form.heure_fin.errors %}<div class="invalid-feedback d-block">{% for error in form.heure_fin.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="quantite_prevue" class="form-label">Quantité Prévue <span class="text-danger">*</span></label>
+                                {{ form.quantite_prevue(class="form-control", type="number", step="any", min="1", required=True) if form else '<input type="number" class="form-control" id="quantite_prevue" name="quantite_prevue" step="any" min="1" required>' }}
+                                {% if form and form.quantite_prevue.errors %}<div class="invalid-feedback d-block">{% for error in form.quantite_prevue.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="priorite" class="form-label">Priorité <span class="text-danger">*</span></label>
+                                {% if form and form.priorite %}
+                                    {{ form.priorite(class="form-select", required=True) }}
+                                {% else %}
+                                <select class="form-select" id="priorite" name="priorite" required>
+                                    <option value="normale" selected>Normale</option>
+                                    <option value="moyenne">Moyenne</option>
+                                    <option value="haute">Haute</option>
+                                </select>
+                                {% endif %}
+                                {% if form and form.priorite.errors %}<div class="invalid-feedback d-block">{% for error in form.priorite.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="commentaire" class="form-label">Commentaire</label>
+                            {{ form.commentaire(class="form-control", rows="3", placeholder="Optionnel") if form else '<textarea class="form-control" id="commentaire" name="commentaire" rows="3" placeholder="Optionnel"></textarea>' }}
+                            {% if form and form.commentaire.errors %}<div class="invalid-feedback d-block">{% for error in form.commentaire.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('production_planning') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Retour au Planning
+                            </a>
+                            {% if form and form.submit %}
+                                {{ form.submit(class="btn btn-primary btn-lg") }}
+                            {% else %}
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-plus-circle me-2"></i>Ajouter au Planning
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block custom_js %}
+<script src="{{ url_for('static', filename='js/flatpickr.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/flatpickr.fr.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr(".flatpickr-date", {
+            dateFormat: "Y-m-d",
+            locale: "fr",
+            allowInput: true,
+            minDate: "today" // Optional: prevent selecting past dates
+        });
+        flatpickr(".flatpickr-time", {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: "H:i",
+            time_24hr: true,
+            locale: "fr",
+            allowInput: true
+        });
+    });
+</script>
 {% endblock %}

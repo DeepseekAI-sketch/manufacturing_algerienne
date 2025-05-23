@@ -1,21 +1,156 @@
 {% extends "layout.html" %}
 
-{% block title %}Modifier Élément du Planning{% endblock %}
+{% block title %}Modifier Planning: {{ planning.produit_nom }} - {{ planning.date_production | format_date if planning.date_production else 'N/A' }}{% endblock %}
+
+{% block custom_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/flatpickr.min.css') }}">
+<style>
+    .form-label {
+        font-weight: 500;
+    }
+    .card-header h4 {
+        font-size: 1.5rem;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container mt-4">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="text-center">Modifier un Élément du Planning</h3>
+        <div class="col-lg-9 col-xl-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-edit me-2"></i>Modifier l'Élément du Planning</h4>
                 </div>
-                <div class="card-body">
-                    <!-- Formulaire pour modifier un élément du planning de production -->
-                    <p>Formulaire de modification du planning...</p>
+                <div class="card-body p-4">
+                    {# Flashed messages display area #}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('production_planning_modifier', planning_id=planning.id) }}">
+                        {{ form.hidden_tag() if form else '' }} {# For CSRF token if using Flask-WTF #}
+
+                        <div class="alert alert-info p-2 mb-3">
+                            <small><strong>Produit:</strong> {{ planning.produit_nom }} ({{ planning.reference }})<br>
+                            <strong>Ligne:</strong> {{ planning.ligne_nom }}</small>
+                        </div>
+                        
+                        {# Readonly fields for produit_id and ligne_production_id if not changeable, or dropdowns if they are #}
+                        {# For this example, assuming they are not changed once planned, but showing how to if needed #}
+                        <input type="hidden" name="produit_id" value="{{ planning.produit_id }}">
+                        <input type="hidden" name="ligne_production_id" value="{{ planning.ligne_production_id }}">
+
+
+                        <div class="mb-3">
+                            <label for="date_production" class="form-label">Date de Production <span class="text-danger">*</span></label>
+                            {{ form.date_production(class="form-control flatpickr-date", value=planning.date_production.strftime('%Y-%m-%d') if planning.date_production else '', required=True) if form else '<input type="text" class="form-control flatpickr-date" id="date_production" name="date_production" value="' ~ (planning.date_production.strftime('%Y-%m-%d') if planning.date_production else '') ~ '" required>' }}
+                            {% if form and form.date_production.errors %}<div class="invalid-feedback d-block">{% for error in form.date_production.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="heure_debut" class="form-label">Heure de Début <span class="text-danger">*</span></label>
+                                {{ form.heure_debut(class="form-control flatpickr-time", value=planning.heure_debut.strftime('%H:%M') if planning.heure_debut else '', required=True) if form else '<input type="text" class="form-control flatpickr-time" id="heure_debut" name="heure_debut" value="' ~ (planning.heure_debut.strftime('%H:%M') if planning.heure_debut else '') ~ '" required>' }}
+                                {% if form and form.heure_debut.errors %}<div class="invalid-feedback d-block">{% for error in form.heure_debut.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="heure_fin" class="form-label">Heure de Fin <span class="text-danger">*</span></label>
+                                {{ form.heure_fin(class="form-control flatpickr-time", value=planning.heure_fin.strftime('%H:%M') if planning.heure_fin else '', required=True) if form else '<input type="text" class="form-control flatpickr-time" id="heure_fin" name="heure_fin" value="' ~ (planning.heure_fin.strftime('%H:%M') if planning.heure_fin else '') ~ '" required>' }}
+                                {% if form and form.heure_fin.errors %}<div class="invalid-feedback d-block">{% for error in form.heure_fin.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="quantite_prevue" class="form-label">Quantité Prévue <span class="text-danger">*</span></label>
+                                {{ form.quantite_prevue(class="form-control", type="number", step="any", min="1", value=planning.quantite_prevue, required=True) if form else '<input type="number" class="form-control" id="quantite_prevue" name="quantite_prevue" step="any" min="1" value="' ~ (planning.quantite_prevue if planning.quantite_prevue is not none else '') ~ '" required>' }}
+                                {% if form and form.quantite_prevue.errors %}<div class="invalid-feedback d-block">{% for error in form.quantite_prevue.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="priorite" class="form-label">Priorité <span class="text-danger">*</span></label>
+                                {% if form and form.priorite %}
+                                    {{ form.priorite(class="form-select", default=planning.priorite, required=True) }}
+                                {% else %}
+                                <select class="form-select" id="priorite" name="priorite" required>
+                                    <option value="normale" {% if planning.priorite == 'normale' %}selected{% endif %}>Normale</option>
+                                    <option value="moyenne" {% if planning.priorite == 'moyenne' %}selected{% endif %}>Moyenne</option>
+                                    <option value="haute" {% if planning.priorite == 'haute' %}selected{% endif %}>Haute</option>
+                                </select>
+                                {% endif %}
+                                {% if form and form.priorite.errors %}<div class="invalid-feedback d-block">{% for error in form.priorite.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="statut" class="form-label">Statut <span class="text-danger">*</span></label>
+                             {% if form and form.statut %}
+                                {{ form.statut(class="form-select", default=planning.statut, required=True) }}
+                            {% else %}
+                            <select class="form-select" id="statut" name="statut" required>
+                                <option value="planifie" {% if planning.statut == 'planifie' %}selected{% endif %}>Planifié</option>
+                                <option value="en_cours" {% if planning.statut == 'en_cours' %}selected{% endif %}>En cours</option>
+                                <option value="termine" {% if planning.statut == 'termine' %}selected{% endif %}>Terminé</option>
+                                <option value="annule" {% if planning.statut == 'annule' %}selected{% endif %}>Annulé</option>
+                            </select>
+                            {% endif %}
+                            {% if form and form.statut.errors %}<div class="invalid-feedback d-block">{% for error in form.statut.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="commentaire" class="form-label">Commentaire</label>
+                            {{ form.commentaire(class="form-control", rows="3", default=planning.commentaire) if form else '<textarea class="form-control" id="commentaire" name="commentaire" rows="3">' ~ (planning.commentaire if planning.commentaire is not none else '') ~ '</textarea>' }}
+                            {% if form and form.commentaire.errors %}<div class="invalid-feedback d-block">{% for error in form.commentaire.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('production_planning') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Retour au Planning
+                            </a>
+                            {% if form and form.submit %}
+                                {{ form.submit(class="btn btn-primary btn-lg") }}
+                            {% else %}
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-save me-2"></i>Enregistrer les Modifications
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block custom_js %}
+<script src="{{ url_for('static', filename='js/flatpickr.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/flatpickr.fr.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        flatpickr(".flatpickr-date", {
+            dateFormat: "Y-m-d",
+            locale: "fr",
+            allowInput: true,
+            // minDate: "today" // Usually not needed for modification forms
+        });
+        flatpickr(".flatpickr-time", {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: "H:i",
+            time_24hr: true,
+            locale: "fr",
+            allowInput: true
+        });
+    });
+</script>
 {% endblock %}

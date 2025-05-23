@@ -2,20 +2,150 @@
 
 {% block title %}Importer des Produits{% endblock %}
 
+{% block custom_css %}
+<style>
+    .form-label {
+        font-weight: 500;
+    }
+    .card-header h4 {
+        font-size: 1.5rem;
+    }
+    .upload-area {
+        border: 2px dashed #007bff;
+        border-radius: .25rem;
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+        background-color: #f8f9fa;
+    }
+    .upload-area:hover {
+        background-color: #e9ecef;
+    }
+    .upload-area i {
+        font-size: 3rem;
+        color: #007bff;
+        margin-bottom: 1rem;
+    }
+    .upload-area p {
+        margin-bottom: 0;
+        font-size: 1.1rem;
+    }
+    #fichier {
+        display: none; /* Hide the actual file input */
+    }
+    #file-name-display {
+        margin-top: 1rem;
+        font-style: italic;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container">
+<div class="container mt-4">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="text-center">Importer des Produits</h3>
+        <div class="col-lg-8 col-xl-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-file-import me-2"></i>Importer des Produits</h4>
                 </div>
-                <div class="card-body">
-                    <!-- Formulaire d'importation de produits ici -->
-                    <p>Interface pour importer des produits depuis un fichier...</p>
+                <div class="card-body p-4">
+                    {# Flashed messages display area #}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('produits_importer') }}" enctype="multipart/form-data">
+                        {{ form.hidden_tag() if form and form.hidden_tag else '' }} {# For CSRF token if using Flask-WTF #}
+
+                        <div class="mb-3">
+                            <label for="fichier" class="form-label">Fichier à Importer (.xlsx, .csv)</label>
+                            <div class="upload-area" id="upload-area-clickable">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>Cliquez ici pour sélectionner un fichier ou glissez-déposez.</p>
+                            </div>
+                            <input type="file" class="form-control" id="fichier" name="fichier" accept=".xlsx, .csv" required>
+                            <div id="file-name-display">Aucun fichier sélectionné.</div>
+                            {% if form and form.fichier and form.fichier.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.fichier.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="alert alert-info mt-3">
+                            <h5 class="alert-heading"><i class="fas fa-info-circle"></i> Instructions pour l'importation</h5>
+                            <p>Assurez-vous que votre fichier respecte le format attendu. Les colonnes requises sont : <strong>nom, reference, categorie_nom, type_produit, prix_unitaire</strong>.</p>
+                            <p>Les colonnes optionnelles incluent : <strong>description, tva, unite_mesure, poids, dimensions</strong>.</p>
+                            <p>
+                                {# Placeholder for actual download link if available #}
+                                <a href="#" class="alert-link disabled" aria-disabled="true">Télécharger un modèle de fichier (bientôt disponible)</a>
+                            </p>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('produits_liste') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Retour à la Liste
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-file-import me-2"></i>Importer le Fichier
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block custom_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('upload-area-clickable');
+    const fileInput = document.getElementById('fichier');
+    const fileNameDisplay = document.getElementById('file-name-display');
+
+    if (uploadArea && fileInput && fileNameDisplay) {
+        uploadArea.addEventListener('click', function() {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', function() {
+            if (fileInput.files.length > 0) {
+                fileNameDisplay.textContent = 'Fichier sélectionné : ' + fileInput.files[0].name;
+            } else {
+                fileNameDisplay.textContent = 'Aucun fichier sélectionné.';
+            }
+        });
+
+        // Optional: Drag and drop support
+        uploadArea.addEventListener('dragover', function(event) {
+            event.preventDefault();
+            uploadArea.style.backgroundColor = '#e9ecef'; // Highlight effect
+        });
+        uploadArea.addEventListener('dragleave', function(event) {
+            event.preventDefault();
+            uploadArea.style.backgroundColor = '#f8f9fa'; // Revert highlight
+        });
+        uploadArea.addEventListener('drop', function(event) {
+            event.preventDefault();
+            uploadArea.style.backgroundColor = '#f8f9fa';
+            if (event.dataTransfer.files.length > 0) {
+                fileInput.files = event.dataTransfer.files;
+                fileNameDisplay.textContent = 'Fichier sélectionné : ' + fileInput.files[0].name;
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

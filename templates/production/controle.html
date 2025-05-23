@@ -1,21 +1,136 @@
 {% extends "layout.html" %}
 
-{% block title %}Contrôle de Production{% endblock %}
+{% block title %}Contrôle Qualité pour Lot: {{ production.numero_lot if production else 'N/A' }}{% endblock %}
+
+{% block custom_css %}
+<style>
+    .form-label {
+        font-weight: 500;
+    }
+    .card-header h4, .card-header h5 {
+        font-size: 1.35rem;
+        margin-bottom: 0;
+    }
+    .production-info-card {
+        background-color: #f8f9fa; /* Light background for info */
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
+<div class="container mt-4">
+    {% if production %}
+    <div class="row justify-content-center">
+        <div class="col-lg-9 col-xl-8">
+            <!-- Production Information Card -->
+            <div class="card shadow-sm mb-4 production-info-card">
                 <div class="card-header">
-                    <h3 class="card-title">Contrôle de la Production</h3>
+                    <h5 class="text-primary">Informations sur la Production à Contrôler</h5>
                 </div>
                 <div class="card-body">
-                    <!-- Interface pour le contrôle et le suivi de la production -->
-                    <p>Interface de contrôle de production...</p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Produit:</strong> {{ production.produit_nom }} ({{ production.reference }})</p>
+                            <p><strong>Numéro de Lot:</strong> <span class="badge bg-secondary fs-6">{{ production.numero_lot }}</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Date de Production:</strong> {{ production.date_creation | format_datetime if production.date_creation else 'N/A' }}</p>
+                            {# Assuming ligne_nom is available on production object directly or joined #}
+                            <p><strong>Ligne de Production:</strong> {{ production.ligne_nom | default('N/A') }}</p> 
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Card -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4><i class="fas fa-check-circle me-2"></i>Ajouter un Contrôle Qualité</h4>
+                </div>
+                <div class="card-body p-4">
+                    {# Flashed messages display area #}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('production_controle', production_id=production.id) }}" enctype="multipart/form-data">
+                        {{ form.hidden_tag() if form else '' }} {# For CSRF token if using Flask-WTF #}
+
+                        <div class="mb-3">
+                            <label for="type_controle" class="form-label">Type de Contrôle <span class="text-danger">*</span></label>
+                            {{ form.type_controle(class="form-control", required=True, placeholder="Ex: Visuel, Dimensionnel, Fonctionnel") if form else '<input type="text" class="form-control" id="type_controle" name="type_controle" required placeholder="Ex: Visuel, Dimensionnel, Fonctionnel">' }}
+                            {% if form and form.type_controle.errors %}<div class="invalid-feedback d-block">{% for error in form.type_controle.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="resultat" class="form-label">Résultat <span class="text-danger">*</span></label>
+                            {% if form and form.resultat %}
+                                {{ form.resultat(class="form-select", required=True) }}
+                            {% else %}
+                            <select class="form-select" id="resultat" name="resultat" required>
+                                <option value="" disabled selected>Choisir un résultat...</option>
+                                <option value="conforme">Conforme</option>
+                                <option value="non_conforme">Non Conforme</option>
+                                <option value="en_attente">En Attente</option>
+                            </select>
+                            {% endif %}
+                            {% if form and form.resultat.errors %}<div class="invalid-feedback d-block">{% for error in form.resultat.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="commentaire" class="form-label">Commentaire</label>
+                            {{ form.commentaire(class="form-control", rows="3", placeholder="Optionnel: observations, actions correctives...") if form else '<textarea class="form-control" id="commentaire" name="commentaire" rows="3" placeholder="Optionnel: observations, actions correctives..."></textarea>' }}
+                            {% if form and form.commentaire.errors %}<div class="invalid-feedback d-block">{% for error in form.commentaire.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="mesures" class="form-label">Mesures (JSON)</label>
+                            {{ form.mesures(class="form-control", rows="3", placeholder='Optionnel: Ex: {"longueur": 10.2, "largeur": 5.1}') if form else '<textarea class="form-control" id="mesures" name="mesures" rows="3" placeholder=\'Optionnel: Ex: {"longueur": 10.2, "largeur": 5.1}\'></textarea>' }}
+                            <small class="form-text text-muted">Si des mesures sont enregistrées, elles doivent être au format JSON valide.</small>
+                            {% if form and form.mesures.errors %}<div class="invalid-feedback d-block">{% for error in form.mesures.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="rapport" class="form-label">Rapport de Contrôle (PDF, Image)</label>
+                            {{ form.rapport(class="form-control", accept=".pdf,.jpg,.jpeg,.png") if form else '<input type="file" class="form-control" id="rapport" name="rapport" accept=".pdf,.jpg,.jpeg,.png">' }}
+                            {% if form and form.rapport.errors %}<div class="invalid-feedback d-block">{% for error in form.rapport.errors %}{{ error }}{% endfor %}</div>{% endif %}
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('production_details', production_id=production.id) }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Retour aux Détails
+                            </a>
+                            {% if form and form.submit %}
+                                {{ form.submit(class="btn btn-primary btn-lg") }}
+                            {% else %}
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-save me-2"></i>Enregistrer Contrôle
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
+    {% else %}
+    <div class="alert alert-danger text-center" role="alert">
+        Information de production non trouvée. Impossible d'ajouter un contrôle qualité.
+        <a href="{{ url_for('production_liste') }}" class="alert-link">Retour à la liste des productions</a>.
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block custom_js %}
+{# Any specific JS for this page could go here #}
 {% endblock %}

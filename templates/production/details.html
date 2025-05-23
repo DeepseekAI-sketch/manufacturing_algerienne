@@ -1,21 +1,209 @@
 {% extends "layout.html" %}
 
-{% block title %}Détails de l'Ordre de Production{% endblock %}
+{% block title %}Détails de Production: Lot {{ production.numero_lot if production else 'N/A' }}{% endblock %}
+
+{% block custom_css %}
+<style>
+    .card-header h5 {
+        font-size: 1.25rem;
+        font-weight: bold;
+    }
+    .table th {
+        white-space: nowrap;
+    }
+    .badge.bg-success { background-color: #198754 !important; }
+    .badge.bg-danger { background-color: #dc3545 !important; }
+    .badge.bg-warning { background-color: #ffc107 !important; color: #000 !important; }
+    .badge.bg-info { background-color: #0dcaf0 !important; }
+    .comparison-card {
+        background-color: #e9f5ff; /* Light blue background */
+        border-left: 5px solid #0d6efd; /* Blue left border */
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid mt-4">
+    {% if production %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0 text-gray-800">Détails de Production: Lot {{ production.numero_lot }}</h1>
+        <div>
+            {% if has_permission('operator') %}
+            <a href="{{ url_for('production_controle', production_id=production.id) }}" class="btn btn-primary">
+                <i class="fas fa-plus-circle me-1"></i> Ajouter Contrôle Qualité
+            </a>
+            {% endif %}
+            <a href="{{ url_for('production_liste') }}" class="btn btn-outline-secondary ms-2">
+                <i class="fas fa-arrow-left me-1"></i> Retour à la Liste
+            </a>
+        </div>
+    </div>
+
+    <!-- Flashed Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Détails de l'Ordre de Production</h3>
+        <!-- Informations Générales de Production -->
+        <div class="col-lg-7 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-industry me-2"></i>Informations de Production</h5>
                 </div>
                 <div class="card-body">
-                    <!-- Informations détaillées sur un ordre de production -->
-                    <p>Détails spécifiques d'un ordre de production...</p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Produit:</strong> {{ production.produit_nom }} ({{ production.reference }})</p>
+                            <p><strong>Ligne de Production:</strong> {{ production.ligne_nom }}</p>
+                            <p><strong>Numéro de Lot:</strong> <span class="badge bg-secondary fs-6">{{ production.numero_lot }}</span></p>
+                            <p><strong>Date de Création:</strong> {{ production.date_creation | format_datetime if production.date_creation else 'N/A' }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Quantité Produite:</strong> {{ production.quantite_produite | round(2) }} {{ production.unite_mesure | default('', true) }}</p>
+                            <p><strong>Temps de Production:</strong> {{ (production.temps_production / 60) | round(2) if production.temps_production is not none else 'N/A' }} heures</p>
+                            <p><strong>Productivité:</strong> <span class="fw-bold">{{ production.productivite | round(2) if production.productivite is not none else 'N/A' }}</span> unités/heure</p>
+                            <p><strong>Enregistré par:</strong> {{ production.prenom ~ ' ' ~ production.nom_utilisateur if production.prenom and production.nom_utilisateur else production.nom_utilisateur | default('Système', true) }}</p>
+                        </div>
+                    </div>
+                    {% if production.commentaire %}
+                    <hr>
+                    <p><strong>Commentaire:</strong></p>
+                    <p>{{ production.commentaire | nl2br }}</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
+
+        <!-- Comparaison avec Moyennes -->
+        {% if production.comparaison %}
+        <div class="col-lg-5 mb-4">
+            <div class="card shadow-sm h-100 comparison-card">
+                <div class="card-header bg-transparent border-0 pt-3">
+                    <h5 class="mb-0"><i class="fas fa-balance-scale me-2"></i>Comparaison avec les Moyennes du Produit</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item bg-transparent">
+                            Temps Moyen: 
+                            <span class="float-end fw-bold">{{ (production.comparaison.temps_moyen / 60) | round(2) if production.comparaison.temps_moyen is not none else 'N/A' }} heures</span>
+                        </li>
+                        <li class="list-group-item bg-transparent">
+                            Quantité Moyenne: 
+                            <span class="float-end fw-bold">{{ production.comparaison.quantite_moyenne | round(2) if production.comparaison.quantite_moyenne is not none else 'N/A' }} {{ production.unite_mesure | default('', true) }}</span>
+                        </li>
+                        <li class="list-group-item bg-transparent">
+                            Productivité Moyenne: 
+                            <span class="float-end fw-bold">{{ production.comparaison.productivite_moyenne | round(2) if production.comparaison.productivite_moyenne is not none else 'N/A' }} unités/heure</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
+
+    <!-- Détails du Lot (Consommation Matériaux) -->
+    {% if details_lot and details_lot.consommation_materiaux %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Détails du Lot: Consommation de Matériaux</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Produit ID</th>
+                            <th>Nom du Matériau</th>
+                            <th>Référence</th>
+                            <th class="text-end">Quantité Consommée</th>
+                            <th>Unité</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for materiau in details_lot.consommation_materiaux %}
+                        <tr>
+                            <td>{{ materiau.produit_id }}</td>
+                            <td>{{ materiau.nom_produit }}</td>
+                            <td>{{ materiau.reference_produit }}</td>
+                            <td class="text-end">{{ materiau.quantite_consommee | round(2) }}</td>
+                            <td>{{ materiau.unite_mesure }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+             {% if details_lot.quantite_totale %}
+                <p class="mt-2"><strong>Quantité totale du lot (si applicable) :</strong> {{ details_lot.quantite_totale }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Contrôles Qualité Associés -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Contrôles Qualité Associés</h5>
+        </div>
+        <div class="card-body">
+            {% if controles_qualite %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Type Contrôle</th>
+                            <th>Résultat</th>
+                            <th>Commentaire</th>
+                            <th>Utilisateur</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for controle in controles_qualite %}
+                        <tr>
+                            <td>{{ controle.date_controle | format_datetime if controle.date_controle else 'N/A' }}</td>
+                            <td>{{ controle.type_controle | default('N/A', true) }}</td>
+                            <td>
+                                <span class="badge {{ controle.classe_resultat | default('bg-secondary', true) }}">
+                                    {{ controle.resultat | default('N/A', true) }}
+                                </span>
+                            </td>
+                            <td>{{ controle.commentaire | default('', true) | truncate(80, True) }}</td>
+                            <td>{{ controle.utilisateur_prenom ~ ' ' ~ controle.utilisateur_nom if controle.utilisateur_prenom and controle.utilisateur_nom else controle.utilisateur_nom | default('Système', true) }}</td>
+                            <td class="text-center">
+                                <a href="{{ url_for('qualite_details', controle_id=controle.id) }}" class="btn btn-sm btn-outline-info" title="Voir Contrôle">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-center text-muted">Aucun contrôle qualité associé à cette production pour le moment.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-danger text-center" role="alert">
+        Les détails de cette production n'ont pas pu être chargés.
+        <a href="{{ url_for('production_liste') }}" class="alert-link">Retour à la liste des productions</a>.
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block custom_js %}
+{# Any specific JS for this page could go here #}
 {% endblock %}
